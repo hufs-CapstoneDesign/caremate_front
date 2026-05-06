@@ -33,17 +33,15 @@ export default function HomeScreen() {
           <Ionicons name="call-outline" size={28} color="white" />
           <View style={{ marginLeft: 12 }}>
             <Text style={styles.cardTitle}>전화 받기 (데모)</Text>
-            <Text style={styles.cardDesc}>
-              AI가 전화 거는 화면 보기
-            </Text>
+            <Text style={styles.cardDesc}>AI가 전화 거는 화면 보기</Text>
           </View>
         </TouchableOpacity>
 
         {/* 하단 설명 */}
         <View style={styles.infoBox}>
           <Text style={styles.infoText}>
-            AI 케어봇이 매일 정해진 시간에 전화를 드립니다.
-            편하게 이야기 나눠주세요!
+            AI 케어봇이 매일 정해진 시간에 전화를 드립니다. 편하게 이야기
+            나눠주세요!
           </Text>
         </View>
       </View>
@@ -98,43 +96,43 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 30,
     padding: 20,
   },
-cardPrimary: {
-  flexDirection: "row",
-  alignItems: "center",
-  backgroundColor: "#12B886",
-  padding: 20,
-  borderRadius: 20,
-  marginBottom: 15,
-},
+  cardPrimary: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#12B886",
+    padding: 20,
+    borderRadius: 20,
+    marginBottom: 15,
+  },
 
-cardSecondary: {
-  flexDirection: "row",
-  alignItems: "center",
-  backgroundColor: "#0CA678",
-  padding: 20,
-  borderRadius: 20,
-  marginBottom: 20,
-},
+  cardSecondary: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0CA678",
+    padding: 20,
+    borderRadius: 20,
+    marginBottom: 20,
+  },
 
-cardTitle: {
-  color: "white",
-  fontSize: 18,
-  fontWeight: "bold",
-},
+  cardTitle: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
 
-cardDesc: {
-  color: "white",
-  opacity: 0.8,
-},
+  cardDesc: {
+    color: "white",
+    opacity: 0.8,
+  },
 
-infoBox: {
-  backgroundColor: "#E9ECEF",
-  padding: 16,
-  borderRadius: 16,
-},
+  infoBox: {
+    backgroundColor: "#E9ECEF",
+    padding: 16,
+    borderRadius: 16,
+  },
 
-infoText: {
-  color: "#555",
-  textAlign: "center",
-},
+  infoText: {
+    color: "#555",
+    textAlign: "center",
+  },
 });

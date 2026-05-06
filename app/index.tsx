@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import React from "react";
 import {
   StatusBar,
@@ -10,6 +11,9 @@ import {
 export default function StartScreen() {
   return (
     <View style={styles.container}>
+      <TouchableOpacity onPress={() => router.push("/call")}>
+        <Text>통화 화면 테스트</Text>
+      </TouchableOpacity>
       <StatusBar barStyle="light-content" />
 
       <View style={styles.logoSection}>
@@ -39,7 +43,10 @@ export default function StartScreen() {
           <Text style={styles.arrow}>›</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.loginCard}>
+        <TouchableOpacity
+          style={styles.loginCard}
+          onPress={() => router.push("/patient_main")}
+        >
           <View style={styles.patientIconBox}>
             <Text style={styles.cardIcon}>👤</Text>
           </View>
