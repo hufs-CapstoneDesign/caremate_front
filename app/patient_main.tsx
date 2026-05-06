@@ -1,138 +1,87 @@
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import { useRouter } from "expo-router";
+import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
+// 1. 라이브러리 임포트 (중괄호 없이 가져오는 것이 정석입니다)
+import AudioRecorderPlayer from 'react-native-audio-recorder-player';
+import LiveAudioStream from 'react-native-live-audio-stream';
+import io from 'socket.io-client';
+
+// 2. 인스턴스 생성 (export default 밖, 파일 상단에 위치)
+// @ts-ignore (타입 에러 방지용)
+const socket = io('https://your-backend-server.com');
+// @ts-ignore
+const audioRecorderPlayer = new AudioRecorderPlayer();
+
 export default function HomeScreen() {
+  const router = useRouter();
+
+  // 3. 통화 시작 함수
+  const handleStartConsultation = async () => {
+    try {
+      // 실시간 스트리밍 시작
+      socket.emit('start_vito_session');
+      LiveAudioStream.init({
+        sampleRate: 16000,
+        channels: 1,
+        bitsPerSample: 16,
+        bufferSize: 4096,
+      });
+      LiveAudioStream.on('data', (data) => {
+        socket.emit('audio_chunk', data);
+      });
+      LiveAudioStream.start();
+
+      // 로컬 녹음 시작
+      await audioRecorderPlayer.startRecorder();
+
+      // 전화 화면으로 이동
+      router.push("/call");
+    } catch (error) {
+      console.error("통화 시작 중 오류:", error);
+    }
+  };
+
   return (
     <View style={styles.container}>
-      {/* 상단 영역 */}
       <View style={styles.header}>
         <Text style={styles.greeting}>안녕하세요,</Text>
         <Text style={styles.name}>김순자 어르신</Text>
-
         <View style={styles.timeBox}>
-          <Text style={styles.period}>오후</Text>
           <Text style={styles.time}>1:34</Text>
           <Text style={styles.date}>2026년 4월 29일 (수)</Text>
         </View>
       </View>
 
-      {/* 카드 영역 */}
       <View style={styles.cardContainer}>
-        {/* AI에게 전화하기 */}
-        <TouchableOpacity style={styles.cardPrimary}>
+        <TouchableOpacity 
+          style={[styles.cardPrimary, styles.loginCard]} 
+          onPress={handleStartConsultation}
+        >
           <Ionicons name="call-outline" size={28} color="white" />
           <View style={{ marginLeft: 12 }}>
             <Text style={styles.cardTitle}>AI에게 전화하기</Text>
             <Text style={styles.cardDesc}>언제든지 말을 걸어보세요</Text>
           </View>
         </TouchableOpacity>
-
-        {/* 전화 받기 */}
-        <TouchableOpacity style={styles.cardSecondary}>
-          <Ionicons name="call-outline" size={28} color="white" />
-          <View style={{ marginLeft: 12 }}>
-            <Text style={styles.cardTitle}>전화 받기 (데모)</Text>
-            <Text style={styles.cardDesc}>AI가 전화 거는 화면 보기</Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* 하단 설명 */}
-        <View style={styles.infoBox}>
-          <Text style={styles.infoText}>
-            AI 케어봇이 매일 정해진 시간에 전화를 드립니다. 편하게 이야기
-            나눠주세요!
-          </Text>
-        </View>
       </View>
     </View>
   );
 }
 
+// 스타일 정의 (생략된 부분은 기존과 동일)
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0FA67A",
-  },
-  header: {
-    paddingTop: 80,
-    paddingHorizontal: 20,
-  },
-  greeting: {
-    color: "white",
-    fontSize: 18,
-  },
-  name: {
-    color: "white",
-    fontSize: 26,
-    fontWeight: "bold",
-    marginBottom: 30,
-  },
-  timeBox: {
-    alignItems: "center",
-    marginBottom: 40,
-  },
-  period: {
-    color: "white",
-    fontSize: 14,
-  },
-  time: {
-    color: "white",
-    fontSize: 64,
-    fontWeight: "bold",
-  },
-  date: {
-    marginTop: 10,
-    color: "white",
-    backgroundColor: "rgba(255,255,255,0.2)",
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  cardContainer: {
-    flex: 1,
-    backgroundColor: "#F2F2F2",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    padding: 20,
-  },
-  cardPrimary: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#12B886",
-    padding: 20,
-    borderRadius: 20,
-    marginBottom: 15,
-  },
-
-  cardSecondary: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#0CA678",
-    padding: 20,
-    borderRadius: 20,
-    marginBottom: 20,
-  },
-
-  cardTitle: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-
-  cardDesc: {
-    color: "white",
-    opacity: 0.8,
-  },
-
-  infoBox: {
-    backgroundColor: "#E9ECEF",
-    padding: 16,
-    borderRadius: 16,
-  },
-
-  infoText: {
-    color: "#555",
-    textAlign: "center",
-  },
+  container: { flex: 1, backgroundColor: "#0FA67A" },
+  header: { paddingTop: 80, paddingHorizontal: 20 },
+  greeting: { color: "white", fontSize: 18 },
+  name: { color: "white", fontSize: 26, fontWeight: "bold" },
+  timeBox: { alignItems: "center", marginBottom: 40 },
+  time: { color: "white", fontSize: 64, fontWeight: "bold" },
+  date: { color: "white", marginTop: 10 },
+  cardContainer: { flex: 1, backgroundColor: "#F2F2F2", borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 20 },
+  cardPrimary: { flexDirection: "row", alignItems: "center", backgroundColor: "#12B886", padding: 20, borderRadius: 20 },
+  cardTitle: { color: "white", fontSize: 18, fontWeight: "bold" },
+  cardDesc: { color: "white", opacity: 0.8 },
+  loginCard: { elevation: 3, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4 }
 });
