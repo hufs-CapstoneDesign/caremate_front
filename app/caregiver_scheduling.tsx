@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { Calendar, ChevronLeft, Clock, Phone } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Switch, TouchableOpacity, View } from 'react-native';
@@ -28,7 +29,7 @@ const GuardianAISetting = () => {
       {/* 상단 헤더 */}
       <Header>
         <TouchableOpacity>
-          <ChevronLeft color="#333" size={24} />
+          <ChevronLeft color="#333" size={24} onPress={() => (router.push("/caregiver_main"))}/>
         </TouchableOpacity>
         <HeaderTitle>AI 안부 전화 설정</HeaderTitle>
         <View style={{ width: 24 }} />

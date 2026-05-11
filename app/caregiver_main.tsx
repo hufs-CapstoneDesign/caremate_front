@@ -73,7 +73,7 @@ const GuardianMain = () => {
         <NotificationItem>
           <NotiPoint />
           <NotiContent>
-            <NotiText>[오전 10:30] 약 복용 완료 (고혈압 약)</NotiText>
+            <NotiText>[오전 10:30] 전화 3회 미수신 - 즉시 확인 필요</NotiText>
             <NotiTime>방금 전</NotiTime>
           </NotiContent>
         </NotificationItem>
