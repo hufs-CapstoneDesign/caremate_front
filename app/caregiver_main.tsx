@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { Activity, Bell, Calendar, User } from 'lucide-react-native';
 import React from 'react';
 import { TouchableOpacity, View } from 'react-native';
@@ -55,7 +56,7 @@ const GuardianMain = () => {
             </MenuIconBox>
             <MenuText>전화 걸기</MenuText>
           </MenuButton>
-          <MenuButton>
+          <MenuButton onPress={() => router.push("/caregiver_scheduling")}>
             <MenuIconBox backgroundColor="#ff7f7f">
               <Activity color="#6bff75" size={28} />
             </MenuIconBox>
