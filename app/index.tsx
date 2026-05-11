@@ -11,7 +11,7 @@ import {
 export default function StartScreen() {
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={() => router.push("/call")}>
+      <TouchableOpacity onPress={() => router.push("/patient_call")}>
         <Text>통화 화면 테스트</Text>
       </TouchableOpacity>
       <StatusBar barStyle="light-content" />
