@@ -44,7 +44,7 @@ const GuardianMain = () => {
 
         {/* 퀵 메뉴 섹션 */}
         <MenuGrid>
-          <MenuButton>
+          <MenuButton onPress={() => router.push("/caregiver_report")}>
             <MenuIconBox backgroundColor="#EEF5FF">
               <Calendar color="#4A90E2" size={28} />
             </MenuIconBox>
