@@ -43,7 +43,7 @@ export default function StartScreen() {
           <Text style={styles.arrow}>›</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity>
+        <TouchableOpacity style={styles.loginCard} onPress={() => router.push("/patient_main")}>
           <View style={styles.patientIconBox}>
             <Text style={styles.cardIcon}>👤</Text>
           </View>

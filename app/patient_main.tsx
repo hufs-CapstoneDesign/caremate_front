@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { router } from "expo-router";
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
@@ -14,9 +14,7 @@ const socket = io('https://your-backend-server.com');
 // @ts-ignore
 const audioRecorderPlayer = new AudioRecorderPlayer();
 
-export default function HomeScreen() {
-  const router = useRouter();
-
+export default function PatientMain() {
   // 3. 통화 시작 함수
   const handleStartConsultation = async () => {
     try {
@@ -27,7 +25,7 @@ export default function HomeScreen() {
         channels: 1,
         bitsPerSample: 16,
         bufferSize: 4096,
-      });
+      } as any);
       LiveAudioStream.on('data', (data) => {
         socket.emit('audio_chunk', data);
       });
@@ -37,7 +35,7 @@ export default function HomeScreen() {
       await audioRecorderPlayer.startRecorder();
 
       // 전화 화면으로 이동
-      router.push("/call");
+      router.push("/patient_call");
     } catch (error) {
       console.error("통화 시작 중 오류:", error);
     }
