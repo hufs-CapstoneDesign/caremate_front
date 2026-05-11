@@ -30,7 +30,7 @@ export default function StartScreen() {
       </View>
 
       <View style={styles.buttonSection}>
-        <TouchableOpacity style={styles.loginCard}>
+        <TouchableOpacity style={styles.loginCard} onPress={() => router.push("/caregiver_main")}>
           <View style={styles.guardianIconBox}>
             <Text style={styles.cardIcon}>🛡️</Text>
           </View>
