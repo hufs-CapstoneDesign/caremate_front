@@ -1,4 +1,4 @@
-import { Activity, Bell, Calendar, ChevronRight, User } from 'lucide-react-native';
+import { Activity, Bell, Calendar, User } from 'lucide-react-native';
 import React from 'react';
 import { TouchableOpacity, View } from 'react-native';
 import styled from 'styled-components/native';
@@ -36,35 +36,9 @@ const GuardianMain = () => {
               <Avatar source={{ uri: 'https://via.placeholder.com/100' }} />
               <View>
                 <PatientName>김정숙 어르신</PatientName>
-                <StatusTag>
-                  <StatusDot />
-                  <StatusTagText>현재 원활히 케어 중</StatusTagText>
-                </StatusTag>
               </View>
             </PatientInfo>
-            <ChevronRight color="#CCC" size={20} />
           </CardHeader>
-          
-          <Divider />
-
-          <CardBody>
-            <InfoRow>
-              <InfoItem>
-                <InfoLabel>
-                  <Calendar size={14} color="#999" style={{ marginRight: 4 }} />
-                  <InfoLabelText>담당 간병인</InfoLabelText>
-                </InfoLabel>
-                <InfoValue>이영희 간병사</InfoValue>
-              </InfoItem>
-              <InfoItem>
-                <InfoLabel>
-                  <Activity size={14} color="#999" style={{ marginRight: 4 }} />
-                  <InfoLabelText>오늘의 컨디션</InfoLabelText>
-                </InfoLabel>
-                <InfoValue color="#4A90E2">매우 좋음</InfoValue>
-              </InfoItem>
-            </InfoRow>
-          </CardBody>
         </StatusCard>
 
         {/* 퀵 메뉴 섹션 */}
@@ -73,19 +47,19 @@ const GuardianMain = () => {
             <MenuIconBox backgroundColor="#EEF5FF">
               <Calendar color="#4A90E2" size={28} />
             </MenuIconBox>
-            <MenuText>간병 일지</MenuText>
+            <MenuText>리포트 열람</MenuText>
           </MenuButton>
           <MenuButton>
             <MenuIconBox backgroundColor="#FFF0F0">
               <Activity color="#FF6B6B" size={28} />
             </MenuIconBox>
-            <MenuText>실시간 상태</MenuText>
+            <MenuText>전화 걸기</MenuText>
           </MenuButton>
           <MenuButton>
-            <MenuIconBox backgroundColor="#F0FFF4">
-              <Bell color="#2ECC71" size={28} />
+            <MenuIconBox backgroundColor="#ff7f7f">
+              <Activity color="#6bff75" size={28} />
             </MenuIconBox>
-            <MenuText>병원 예약</MenuText>
+            <MenuText>AI 전화 스케줄링</MenuText>
           </MenuButton>
         </MenuGrid>
 
@@ -109,6 +83,19 @@ const GuardianMain = () => {
             <NotiTime>1시간 전</NotiTime>
           </NotiContent>
         </NotificationItem>
+
+        <SectionHeader>
+            <SectionTitle>내 환자 추가하기</SectionTitle>
+        </SectionHeader>
+
+        <MenuGrid>
+          <MenuButton>
+            <MenuIconBox backgroundColor="#EEF5FF">
+              <Calendar color="#4A90E2" size={28} />
+            </MenuIconBox>
+            <MenuText>+</MenuText>
+          </MenuButton>
+        </MenuGrid>
       </Content>
     </Container>
   );
