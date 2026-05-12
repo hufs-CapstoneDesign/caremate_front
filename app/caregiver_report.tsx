@@ -1,16 +1,27 @@
 import {
-    Activity,
-    AlertCircle,
-    Calendar,
-    ChevronLeft,
-    MessageCircle,
-    Pill,
-    Smile,
-    Utensils
+  Activity,
+  AlertCircle,
+  Calendar,
+  ChevronLeft,
+  MessageCircle,
+  Pill,
+  Smile,
+  Utensils,
 } from 'lucide-react-native';
-import React from 'react';
-import { Alert, TouchableOpacity } from 'react-native';
 import styled from 'styled-components/native';
+
+import React, { useState } from 'react';
+import { Alert, Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { LocaleConfig, Calendar as RNcalendar } from 'react-native-calendars';
+
+LocaleConfig.locales['kr'] = {
+  monthNames: ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'],
+  monthNamesShort: ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'],
+  dayNames: ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'],
+  dayNamesShort: ['일','월','화','수','목','금','토'],
+  today: '오늘'
+};
+LocaleConfig.defaultLocale = 'kr';
 
 // --- 타입 정의 ---
 interface ProgressProps {
@@ -28,6 +39,8 @@ const GuardianReport = () => {
     { d: '금', n: '15' },
     { d: '토', n: '16' },
   ];
+  const [isCalendarVisible, setCalendarVisible] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
   return (
     <Container>
@@ -46,6 +59,36 @@ const GuardianReport = () => {
           </DateItem>
         ))}
       </DateBar>
+      {/* 3. 캘린더 모달 (핵심 코드) */}
+      <Modal
+        visible={isCalendarVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setCalendarVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setCalendarVisible(false)} // 배경 클릭 시 닫기
+        >
+          <View style={styles.calendarContainer}>
+            <RNcalendar
+              onDayPress={(day) => {
+                setSelectedDate(day.dateString); // 날짜 저장
+                setCalendarVisible(false);       // 모달 닫기
+                // 여기에 날짜 변경에 따른 데이터 호출(API) 로직 추가 가능
+              }}
+              markedDates={{
+                [selectedDate]: { selected: true, selectedColor: '#3b82f6' }
+              }}
+              theme={{
+                todayTextColor: '#3b82f6',
+                arrowColor: '#3b82f6',
+              }}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       <Content showsVerticalScrollIndicator={false}>
         <SummaryBanner>
@@ -168,6 +211,8 @@ const GuardianReport = () => {
   );
 };
 
+
+
 export default GuardianReport;
 
 // --- 스타일 정의 (가장 하단에 위치) ---
@@ -238,3 +283,42 @@ const ChatOriginButtonText = styled.Text`
 const BottomPadding = styled.View`
   height: 40px;
 `;
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f8fafc' },
+  header: { 
+    height: 60, 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', 
+    paddingHorizontal: 20,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0'
+  },
+  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b' },
+  iconButton: { padding: 8 },
+  content: { flex: 1, padding: 20, alignItems: 'center' },
+  dateText: { fontSize: 16, fontWeight: '600', color: '#64748b', marginBottom: 20 },
+  
+  // 모달 스타일
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)', // 배경을 어둡게
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  calendarContainer: {
+    width: '90%',
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 15,
+    overflow: 'hidden',
+    elevation: 10, // 안드로이드 그림자
+    shadowColor: '#000', // iOS 그림자
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  }
+});
+
