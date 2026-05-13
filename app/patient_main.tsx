@@ -6,8 +6,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 // 1. 라이브러리 임포트 (중괄호 없이 가져오는 것이 정석입니다)
 import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import LiveAudioStream from 'react-native-live-audio-stream';
-import io from 'socket.io-client';
-
+import socket from '../constants/socket';
 // 2. 인스턴스 생성 (export default 밖, 파일 상단에 위치)
 // @ts-ignore (타입 에러 방지용)
 const socket = io('https://your-backend-server.com');
