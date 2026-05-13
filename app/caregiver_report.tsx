@@ -6,7 +6,7 @@ import {
   MessageCircle,
   Pill,
   Smile,
-  Utensils,
+  Utensils
 } from 'lucide-react-native';
 import styled from 'styled-components/native';
 
@@ -107,6 +107,10 @@ const GuardianReport = () => {
             <MainStatus>오늘 하루는 <Highlight>매우 안정적</Highlight>이었어요.</MainStatus>
           </SummaryInfo>
         </SummaryBanner>
+        <ChatOriginButton activeOpacity={0.8} onPress={() => Alert.alert('대화 원본', '전체 대화 텍스트 화면으로 이동합니다.')}>
+          <MessageCircle color="#4A90E2" size={20} />
+          <ChatOriginButtonText>전체 대화 원본 보기</ChatOriginButtonText>
+        </ChatOriginButton>
 
         <DetailSection>
           <SectionLabel>상세 지표 (AI 분석)</SectionLabel>
@@ -163,7 +167,7 @@ const GuardianReport = () => {
               </MetricValueGroup>
             </MetricRow>
           </DetailCard>
-          <TrustGuideText>* 주의 표시(<AlertCircle size={10} color="#FF6B6B" />)는 AI 해석 신뢰도가 낮아, 보호자가 직접 확인해야 함을 의미합니다.</TrustGuideText>
+          <TrustGuideText>* 주의 표시(<AlertCircle size={10} color="#FF6B6B" />)는 AI 해석 신뢰도가 낮아, 보호자의 확인이 필요함을 의미합니다.</TrustGuideText>
         </DetailSection>
 
         <SectionHeader>
@@ -173,22 +177,46 @@ const GuardianReport = () => {
 
         <Timeline>
           <TimelineItem>
-            <TimeText>복약, 건강</TimeText>
+            <TimeText>복약/건강</TimeText>
+            <EventBox>
+              <IconWrapper backgroundColor="#EEF5FF"><Utensils color="#4A90E2" size={16} /></IconWrapper>
+              <EventInfo>
+                <EventTitle>약 복용 완료</EventTitle>
+                <EventSub>아침 혈압약과 당뇨약 모두 복용하였습니다.</EventSub>
+              </EventInfo>
+            </EventBox>
+          </TimelineItem>
+          <TimelineItem>
+            <TimeText>식사</TimeText>
             <EventBox>
               <IconWrapper backgroundColor="#EEF5FF"><Utensils color="#4A90E2" size={16} /></IconWrapper>
               <EventInfo>
                 <EventTitle>아침 식사 완료</EventTitle>
-                <EventSub>전복죽 1그릇, 물 150ml</EventSub>
+                <EventSub>아침에 전복죽을 드셨습니다. 점심은 아직 드시지 않으셨습니다.</EventSub>
               </EventInfo>
             </EventBox>
           </TimelineItem>
-          {/* ... 이하 타임라인 생략 ... */}
+          <TimelineItem>
+            <TimeText>정서/감정</TimeText>
+            <EventBox>
+              <IconWrapper backgroundColor="#EEF5FF"><Utensils color="#4A90E2" size={16} /></IconWrapper>
+              <EventInfo>
+                <EventTitle>정서 상태 안정적</EventTitle>
+                <EventSub>전반적으로 기분이 좋다고 하셨으나, 자녀들 얼굴이 보고 싶다고 하셨습니다. 이웃 김 선생님과 어제 이야기를 나눴다고 기억하고 계셨습니다.</EventSub>
+              </EventInfo>
+            </EventBox>
+          </TimelineItem>
+          <TimelineItem>
+            <TimeText>일상/기타</TimeText>
+            <EventBox>
+              <IconWrapper backgroundColor="#EEF5FF"><Utensils color="#4A90E2" size={16} /></IconWrapper>
+              <EventInfo>
+                <EventTitle>TV 시청 및 산책 예정</EventTitle>
+                <EventSub>오전에 TV를 보며 시간을 보내셨고, 오후에는 날씨가 좋으면 산책을 나갈 계획이라고 하셨습니다.</EventSub>
+              </EventInfo>
+            </EventBox>
+          </TimelineItem>
         </Timeline>
-        
-        <ChatOriginButton activeOpacity={0.8} onPress={() => Alert.alert('대화 원본', '전체 대화 텍스트 화면으로 이동합니다.')}>
-          <MessageCircle color="#4A90E2" size={20} />
-          <ChatOriginButtonText>전체 대화 원본 보기</ChatOriginButtonText>
-        </ChatOriginButton>
       </Content>
     </Container>
   );
