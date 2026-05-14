@@ -1,33 +1,45 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { router } from "expo-router";
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 // 1. 라이브러리 임포트 (중괄호 없이 가져오는 것이 정석입니다)
 import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import LiveAudioStream from 'react-native-live-audio-stream';
-import io from 'socket.io-client';
+import socket from '../constants/socket';
 
 // 2. 인스턴스 생성 (export default 밖, 파일 상단에 위치)
-// @ts-ignore (타입 에러 방지용)
-const socket = io('https://your-backend-server.com');
-// @ts-ignore
-const audioRecorderPlayer = new AudioRecorderPlayer();
+const audioRecorderPlayer = new (AudioRecorderPlayer as any)();
 
-export default function HomeScreen() {
-  const router = useRouter();
 
+export default function PatientMain() {
   // 3. 통화 시작 함수
   const handleStartConsultation = async () => {
     try {
       // 실시간 스트리밍 시작
+      const response = await fetch("http://172.16.2.28:8000", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          patient_id: "1", // 명세서의 string 타입
+          call_type: "scheduled"   // 명세서의 string 타입
+        }),
+      });
+      if (!response.ok) {
+        throw new Error('통화 정보 전송 실패');
+      }
+
+      const voiceSocket = new WebSocket('ws://172.16.2.28:8000/ws/calls');
+      
       socket.emit('start_vito_session');
       LiveAudioStream.init({
         sampleRate: 16000,
         channels: 1,
         bitsPerSample: 16,
         bufferSize: 4096,
-      });
+      } as any);
       LiveAudioStream.on('data', (data) => {
         socket.emit('audio_chunk', data);
       });
@@ -37,7 +49,7 @@ export default function HomeScreen() {
       await audioRecorderPlayer.startRecorder();
 
       // 전화 화면으로 이동
-      router.push("/call");
+      router.push("/patient_call");
     } catch (error) {
       console.error("통화 시작 중 오류:", error);
     }

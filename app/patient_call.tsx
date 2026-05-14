@@ -1,4 +1,6 @@
+import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
+
 import {
   Animated,
   StyleSheet,
@@ -20,7 +22,7 @@ const statusText = {
     top: "통화 중",
     main: "AI 케어봇",
     sub: "듣는 중...",
-    dots: "•••••••••••••••",
+    dots: "••••••••••••••",
   },
   speaking: {
     top: "통화 중",
@@ -89,7 +91,7 @@ export default function CallScreen() {
         </TouchableOpacity>
         <Text style={styles.speakerText}>스피커</Text>
 
-        <TouchableOpacity style={styles.endButton}>
+        <TouchableOpacity style={styles.endButton} onPress={() => router.push("/patient_main")}>
           <Text style={styles.endIcon}>📞</Text>
         </TouchableOpacity>
 
