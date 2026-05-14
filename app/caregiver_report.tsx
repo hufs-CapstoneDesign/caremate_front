@@ -10,8 +10,9 @@ import {
 } from 'lucide-react-native';
 import styled from 'styled-components/native';
 
-import React, { useState } from 'react';
-import { Alert, Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useLocalSearchParams } from "expo-router";
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { LocaleConfig, Calendar as RNcalendar } from 'react-native-calendars';
 
 LocaleConfig.locales['kr'] = {
@@ -28,20 +29,55 @@ interface ProgressProps {
   width: string;
   color: string;
 }
+interface ReportDetail {
+  medication_summary: string;
+  meal_summary: string;
+  session_count: number;
+  last_updated: string;
+}
 
-const GuardianReport = () => {
+export default function CaregiverReport() {
+  const { patient_id } = useLocalSearchParams();
+  console.log("넘어온 환자 ID:", patient_id); // 터미널이나 디버거에서 확인
+  const [reportDates, setReportDates] = useState<string[]>([]);
+  const [reportDetail, setReportDetail] = useState<ReportDetail | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCalendarVisible, setCalendarVisible] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  
+useEffect(() => {
+  const fetchReportDetail = async () => {
+    try {
+      // 경로 파라미터: /reports/{patient_id}/{date}
+      const response = await fetch(
+        `http://172.16.2.28:8000/reports/${patient_id}/${selectedDate}`
+      );
+
+      if (response.status === 404) {
+        // 해당 날짜에 리포트가 없는 경우
+        setReportDetail(null);
+        return;
+      }
+
+      const data = await response.json();
+      setReportDetail(data); // medication_summary, meal_summary 등 저장
+    } catch (error) {
+      console.error("상세 리포트 로딩 실패:", error);
+      setReportDetail(null);
+    }
+  };
+
+  if (patient_id && selectedDate) {
+    fetchReportDetail();
+  }
+  }, [patient_id, selectedDate]); // patient_id나 selectedDate가 바뀔 때마다 실행
+  
   const days = [
     { d: '일', n: '10' },
     { d: '월', n: '11' },
-    { d: '화', n: '12', active: true },
-    { d: '수', n: '13' },
-    { d: '목', n: '14' },
-    { d: '금', n: '15' },
-    { d: '토', n: '16' },
+    { d: '화', n: '12', active: true }, // ... 생략
   ];
-  const [isCalendarVisible, setCalendarVisible] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-
+  if (isLoading) return <ActivityIndicator style={{ flex: 1 }} />;
   return (
     <Container>
       <Header>
@@ -122,7 +158,7 @@ const GuardianReport = () => {
               </MetricLabelGroup>
               <MetricValueGroup>
                 <ProgressBarBase><ProgressBar width="100%" color="#FF9F43" /></ProgressBarBase>
-                <ScoreText>3/3회</ScoreText>
+                <ScoreText>{reportDetail?.meal_summary || '정보 없음'}</ScoreText>
                 <TrustIconPlaceholder />
               </MetricValueGroup>
             </MetricRow>
@@ -134,7 +170,7 @@ const GuardianReport = () => {
               </MetricLabelGroup>
               <MetricValueGroup>
                 <ProgressBarBase><ProgressBar width="50%" color="#FF6B6B" /></ProgressBarBase>
-                <ScoreText>1/2회</ScoreText>
+                <ScoreText>{reportDetail?.medication_summary || '정보 없음'}</ScoreText>
                 <TouchableOpacity onPress={() => Alert.alert('AI 신뢰도 주의', '환자의 답변이 불분명하여 복약 여부 판독이 어렵습니다.')}>
                   <AlertCircle size={16} color="#FF6B6B" style={{ marginLeft: 8 }} />
                 </TouchableOpacity>
@@ -222,7 +258,6 @@ const GuardianReport = () => {
   );
 };
 
-export default GuardianReport;
 
 // --- 스타일 정의는 기존과 동일하게 유지 ---
 const Container = styled.SafeAreaView` flex: 1; background-color: #F8F9FB; `;
