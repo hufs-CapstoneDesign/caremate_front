@@ -17,6 +17,22 @@ export default function PatientMain() {
   const handleStartConsultation = async () => {
     try {
       // 실시간 스트리밍 시작
+      const response = await fetch("http://172.16.2.28:8000", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          patient_id: "1", // 명세서의 string 타입
+          call_type: "scheduled"   // 명세서의 string 타입
+        }),
+      });
+      if (!response.ok) {
+        throw new Error('통화 정보 전송 실패');
+      }
+
+      const voiceSocket = new WebSocket('ws://172.16.2.28:8000/ws/calls');
+      
       socket.emit('start_vito_session');
       LiveAudioStream.init({
         sampleRate: 16000,
