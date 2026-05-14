@@ -1,6 +1,5 @@
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-
 import {
   Animated,
   StyleSheet,
@@ -8,8 +7,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
+import AudioRecorderPlayer from 'react-native-audio-recorder-player';
+import { voiceSocket } from '../constants/socket';
 type CallStatus = "connecting" | "listening" | "speaking";
+const audioRecorderPlayer = new (AudioRecorderPlayer as any)();
 
 const statusText = {
   connecting: {
@@ -51,6 +52,24 @@ export default function CallScreen() {
         }),
       ]),
     ).start();
+  }, []);
+
+  useEffect(() => {
+    // 서버로부터 Binary 데이터를 받았을 때의 처리
+    // voiceSocket이 전역적으로 관리된다고 가정할 때:
+    const ws = voiceSocket as any;
+    if (ws) {
+      ws.onmessage = (event: any) => {
+        if (event.data instanceof ArrayBuffer) {
+          console.log("AI 음성 수신:", event.data.byteLength);
+        }
+      };
+    }
+
+    return () => {
+      // 통화 종료 시 소켓 리스너 정리
+      if (voiceSocket) ws.onmessage = null;
+    };
   }, []);
 
   const current = statusText[status];
