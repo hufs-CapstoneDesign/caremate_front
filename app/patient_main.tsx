@@ -7,11 +7,10 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import LiveAudioStream from 'react-native-live-audio-stream';
 import socket from '../constants/socket';
+
 // 2. 인스턴스 생성 (export default 밖, 파일 상단에 위치)
-// @ts-ignore (타입 에러 방지용)
-const socket = io('https://your-backend-server.com');
-// @ts-ignore
-const audioRecorderPlayer = new AudioRecorderPlayer();
+const audioRecorderPlayer = new (AudioRecorderPlayer as any)();
+
 
 export default function PatientMain() {
   // 3. 통화 시작 함수
