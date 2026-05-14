@@ -1,3 +1,4 @@
+import { Audio } from 'expo-av';
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -7,10 +8,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import { voiceSocket } from '../constants/socket';
+
 type CallStatus = "connecting" | "listening" | "speaking";
-const audioRecorderPlayer = new (AudioRecorderPlayer as any)();
 
 const statusText = {
   connecting: {
@@ -35,8 +35,13 @@ const statusText = {
 
 export default function CallScreen() {
   const [status, setStatus] = useState<CallStatus>("listening");
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  
+  // 녹음기 인스턴스를 직접 추적하기 위한 Ref
+  const recordingRef = useRef<Audio.Recording | null>(null);
 
+  // 1. 애니메이션 로직
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
@@ -54,21 +59,91 @@ export default function CallScreen() {
     ).start();
   }, []);
 
+  // 2. 초기 설정 및 클린업 (화면 나갈 때 종료)
   useEffect(() => {
-    // 서버로부터 Binary 데이터를 받았을 때의 처리
-    // voiceSocket이 전역적으로 관리된다고 가정할 때:
+    async function setup() {
+      const response = await Audio.requestPermissionsAsync();
+      if (response.status !== 'granted') {
+        console.log('마이크 권한이 거부되었습니다.');
+      }
+    }
+    setup();
+
+    // 화면을 나갈 때(Unmount) 실행되는 클린업 함수
+    return () => {
+      if (recordingRef.current) {
+        console.log("화면을 나갑니다. 녹음기를 강제로 종료합니다.");
+        recordingRef.current.stopAndUnloadAsync().catch(() => {});
+      }
+    };
+  }, []);
+
+  // 3. 상태(Status) 변화에 따른 자동 녹음 시작/중지
+  useEffect(() => {
+    if (status === "listening") {
+      startRecording();
+    } else {
+      stopRecording();
+    }
+  }, [status]);
+
+  // 4. 녹음 시작 함수
+  async function startRecording() {
+    try {
+      // 이미 녹음 중이라면 중복 실행 방지
+      if (recordingRef.current) return;
+
+      console.log('녹음 준비 중...');
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const { recording: newRecording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      
+      setRecording(newRecording);
+      recordingRef.current = newRecording; // Ref에 저장 (클린업용)
+      console.log('녹음 시작됨');
+    } catch (err) {
+      console.error('녹음 시작 실패:', err);
+    }
+  }
+
+  // 5. 녹음 중지 함수
+  async function stopRecording() {
+    if (!recordingRef.current) return;
+
+    try {
+      console.log('녹음 중지 중...');
+      const targetRecording = recordingRef.current;
+      recordingRef.current = null; // Ref 비우기
+      setRecording(null);
+
+      await targetRecording.stopAndUnloadAsync();
+      const uri = targetRecording.getURI();
+      console.log('녹음 완료, 파일 위치:', uri);
+
+      // TODO: 서버 전송 로직 (FileSystem 등을 통해 읽어서 소켓 전송)
+    } catch (err) {
+      console.error('녹음 중지 실패:', err);
+    }
+  }
+
+  // 6. 소켓 메시지 수신 처리
+  useEffect(() => {
     const ws = voiceSocket as any;
     if (ws) {
       ws.onmessage = (event: any) => {
         if (event.data instanceof ArrayBuffer) {
           console.log("AI 음성 수신:", event.data.byteLength);
+          setStatus("speaking");
         }
       };
     }
-
     return () => {
-      // 통화 종료 시 소켓 리스너 정리
-      if (voiceSocket) ws.onmessage = null;
+      if (ws) ws.onmessage = null;
     };
   }, []);
 
@@ -110,7 +185,10 @@ export default function CallScreen() {
         </TouchableOpacity>
         <Text style={styles.speakerText}>스피커</Text>
 
-        <TouchableOpacity style={styles.endButton} onPress={() => router.push("/patient_main")}>
+        <TouchableOpacity 
+          style={styles.endButton} 
+          onPress={() => router.push("/patient_main")}
+        >
           <Text style={styles.endIcon}>📞</Text>
         </TouchableOpacity>
 
@@ -130,128 +208,28 @@ export default function CallScreen() {
   );
 }
 
+// 기존 스타일 시트는 그대로 유지하세요!
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#1D3145",
-    paddingHorizontal: 30,
-    paddingTop: 55,
-    paddingBottom: 35,
-  },
-  topBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  statusLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  greenDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: "#57E0C7",
-    marginRight: 12,
-  },
-  topText: {
-    color: "#5DE4D1",
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  timer: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  centerArea: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarOuter: {
-    width: 190,
-    height: 190,
-    borderRadius: 95,
-    backgroundColor: "rgba(210,225,245,0.55)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 44,
-  },
-  avatarInner: {
-    width: 118,
-    height: 118,
-    borderRadius: 59,
-    backgroundColor: "#EFFFFB",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  botEmoji: {
-    fontSize: 64,
-  },
-  title: {
-    color: "#FFFFFF",
-    fontSize: 34,
-    fontWeight: "800",
-    marginBottom: 12,
-  },
-  subtitle: {
-    color: "#D8E3EE",
-    fontSize: 20,
-    marginBottom: 36,
-  },
-  voiceBox: {
-    width: 220,
-    height: 108,
-    borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  voiceDots: {
-    color: "#58C9C8",
-    fontSize: 28,
-    letterSpacing: 4,
-  },
-  bottomArea: {
-    alignItems: "center",
-  },
-  speakerButton: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  speakerIcon: {
-    fontSize: 34,
-  },
-  speakerText: {
-    color: "#B9C8D8",
-    fontSize: 16,
-    marginBottom: 34,
-  },
-  endButton: {
-    width: 116,
-    height: 116,
-    borderRadius: 58,
-    backgroundColor: "#FF5F7E",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  endIcon: {
-    fontSize: 42,
-    transform: [{ rotate: "135deg" }],
-  },
-  testButtons: {
-    flexDirection: "row",
-    gap: 18,
-    marginTop: 20,
-  },
-  testText: {
-    color: "#9FEBDD",
-    fontSize: 13,
-  },
+  container: { flex: 1, backgroundColor: "#1A1A1A" },
+  topBar: { flexDirection: "row", justifyContent: "space-between", padding: 50, paddingTop: 60 },
+  statusLeft: { flexDirection: "row", alignItems: "center" },
+  greenDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#4ADE80", marginRight: 8 },
+  topText: { color: "#FFF", fontSize: 16, fontWeight: "600" },
+  timer: { color: "#FFF", fontSize: 16, opacity: 0.6 },
+  centerArea: { flex: 1, alignItems: "center", justifyContent: "center" },
+  avatarOuter: { width: 160, height: 160, borderRadius: 80, backgroundColor: "rgba(74, 222, 128, 0.1)", alignItems: "center", justifyContent: "center" },
+  avatarInner: { width: 120, height: 120, borderRadius: 60, backgroundColor: "#4ADE80", alignItems: "center", justifyContent: "center" },
+  botEmoji: { fontSize: 50 },
+  title: { color: "#FFF", fontSize: 28, fontWeight: "700", marginTop: 24 },
+  subtitle: { color: "#FFF", fontSize: 18, opacity: 0.7, marginTop: 8 },
+  voiceBox: { marginTop: 40, height: 40, justifyContent: "center" },
+  voiceDots: { color: "#4ADE80", fontSize: 24, letterSpacing: 4 },
+  bottomArea: { paddingBottom: 60, alignItems: "center" },
+  speakerButton: { width: 56, height: 56, borderRadius: 28, backgroundColor: "rgba(255,255,255,0.1)", alignItems: "center", justifyContent: "center", marginBottom: 8 },
+  speakerIcon: { fontSize: 24 },
+  speakerText: { color: "#FFF", opacity: 0.6, marginBottom: 40 },
+  endButton: { width: 72, height: 72, borderRadius: 36, backgroundColor: "#FF4444", alignItems: "center", justifyContent: "center", transform: [{ rotate: "135deg" }] },
+  endIcon: { fontSize: 32, color: "#FFF" },
+  testButtons: { flexDirection: "row", marginTop: 20, gap: 20 },
+  testText: { color: "#FFF", opacity: 0.3 }
 });
