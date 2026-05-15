@@ -1,25 +1,34 @@
-// constants/socket.js
+// 수정 전 (Socket.io 방식)
+// import { io } from 'socket.io-client';
+// const socket = io(`http://${SERVER_IP}:8000`);
 
-import io from 'socket.io-client';
+// 수정 후 (순정 WebSocket 방식)
+const SERVER_IP = '192.168.0.10'; // 아까 확인한 노트북 IP
+const socket = new WebSocket(`ws://${SERVER_IP}:8000/ws/chat`); 
+// 주의: 주소 앞에 http가 아니라 'ws'가 붙어야 하고, 
+// 백엔드 websocket.py에 정의된 경로(예: /ws/chat)를 정확히 써야 합니다.
 
-
-const SERVER_IP = '172.16.2.28'; // 실제 PC IP로 수정
-
-// 1. 일반 Socket.io 연결
-const socket = io(`http://${SERVER_IP}:8000`, {
-  transports: ['websocket'],
-});
-
-// 2. 음성 전용 웹소켓 변수 선언 (나중에 할당할 수 있도록)
-export let voiceSocket = null;
-
-// 3. 웹소켓 연결 함수 정의
-export const connectVoiceSocket = () => {
-  voiceSocket = new WebSocket(`ws://${SERVER_IP}:8000/ws/calls`);
-  voiceSocket.binaryType = 'arraybuffer';
-  
-  voiceSocket.onopen = () => console.log('음성 소켓 연결 성공');
-  voiceSocket.onerror = (e) => console.log('음성 소켓 에러:', e);
+// 연결 성공 시
+socket.onopen = () => {
+  console.log('웹소켓 연결 성공!');
 };
 
-export default socket;
+// 메시지 수신 시
+socket.onmessage = (e) => {
+  console.log('받은 메시지:', e.data);
+};
+
+// 에러 발생 시
+socket.onerror = (e) => {
+  console.log('에러 발생:', e.message);
+};
+
+// 연결 종료 시
+socket.onclose = () => {
+  console.log('연결 종료');
+};
+
+// 메시지 전송 함수 예시
+const sendMessage = (msg) => {
+  socket.send(JSON.stringify({ message: msg }));
+};
