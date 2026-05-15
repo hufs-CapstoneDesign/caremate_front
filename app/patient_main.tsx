@@ -4,11 +4,11 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 // 1. 라이브러리 임포트 (중괄호 없이 가져오는 것이 정석입니다)
-import AudioRecorderPlayer from 'react-native-audio-recorder-player';
+//import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import LiveAudioStream from 'react-native-live-audio-stream';
 import socket, { connectVoiceSocket } from '../constants/socket';
 // 2. 인스턴스 생성 (export default 밖, 파일 상단에 위치)
-const audioRecorderPlayer = new (AudioRecorderPlayer as any)();
+//const audioRecorderPlayer = new (AudioRecorderPlayer as any)();
 
 
 export default function PatientMain() {
@@ -45,7 +45,7 @@ export default function PatientMain() {
       LiveAudioStream.start();
 
       // 로컬 녹음 시작
-      await audioRecorderPlayer.startRecorder();
+      // await audioRecorderPlayer.startRecorder();
 
       // 전화 화면으로 이동
       router.push("/patient_call");
