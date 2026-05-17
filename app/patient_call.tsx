@@ -1,4 +1,6 @@
-import { Audio } from 'expo-av';
+import { encode as base64Encode } from "base-64";
+import { Audio } from "expo-av";
+import * as FileSystem from "expo-file-system/legacy";
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -8,207 +10,296 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { voiceSocket } from '../constants/socket';
+
+// --- 상수 및 설정 ---
+const API_BASE_URL = "http://192.168.0.3:8000"; 
+const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5";
+const CALL_TYPE = "voluntary"; 
 
 type CallStatus = "connecting" | "listening" | "speaking";
 
+const SILENCE_LIMIT_MS = 2000;
+const METERING_INTERVAL_MS = 250;
+const SILENCE_THRESHOLD = -10; // 사용자 마이크 환경에 맞춘 설정
+
 const statusText = {
-  connecting: {
-    top: "연결 중",
-    main: "AI 케어봇",
-    sub: "연결하고 있어요...",
-    dots: "••••••",
-  },
-  listening: {
-    top: "통화 중",
-    main: "AI 케어봇",
-    sub: "듣는 중...",
-    dots: "••••••••••••••",
-  },
-  speaking: {
-    top: "통화 중",
-    main: "AI 케어봇",
-    sub: "말하는 중...",
-    dots: "▂ ▃ ▅ ▇ ▅ ▃ ▂",
-  },
+  connecting: { top: "연결 중", main: "AI 케어봇", sub: "연결하고 있어요...", dots: "••••••" },
+  listening: { top: "통화 중", main: "AI 케어봇", sub: "듣는 중...", dots: "••••••••••••••" },
+  speaking: { top: "통화 중", main: "AI 케어봇", sub: "말하는 중...", dots: "▂ ▃ ▅ ▇ ▅ ▃ ▂" },
 };
 
 export default function CallScreen() {
-  const [status, setStatus] = useState<CallStatus>("listening");
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  
-  // 녹음기 인스턴스를 직접 추적하기 위한 Ref
-  const recordingRef = useRef<Audio.Recording | null>(null);
+  const [status, setStatus] = useState<CallStatus>("connecting");
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
-  // 1. 애니메이션 로직
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const recordingRef = useRef<Audio.Recording | null>(null);
+  const socketRef = useRef<WebSocket | null>(null);
+  const meteringTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastVoiceTimeRef = useRef<number>(Date.now());
+  const isProcessingRef = useRef(false);
+
   useEffect(() => {
-    Animated.loop(
+    const pulse = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.12,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 900,
-          useNativeDriver: true,
-        }),
+        Animated.timing(pulseAnim, { toValue: 1.12, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
       ]),
-    ).start();
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [pulseAnim]);
+
+  useEffect(() => {
+    startCall();
+    return () => { cleanup(); };
   }, []);
 
-  // 2. 초기 설정 및 클린업 (화면 나갈 때 종료)
-  useEffect(() => {
-    async function setup() {
-      const response = await Audio.requestPermissionsAsync();
-      if (response.status !== 'granted') {
-        console.log('마이크 권한이 거부되었습니다.');
-      }
-    }
-    setup();
+  // --- API 및 통신 로직 (로그 복구 완료) ---
 
-    // 화면을 나갈 때(Unmount) 실행되는 클린업 함수
-    return () => {
-      if (recordingRef.current) {
-        console.log("화면을 나갑니다. 녹음기를 강제로 종료합니다.");
-        recordingRef.current.stopAndUnloadAsync().catch(() => {});
+  async function startCall() {
+    try {
+      setStatus("connecting");
+      console.log("1. [API 요청] 통화 시작:", `${API_BASE_URL}/calls`);
+    
+      const permission = await Audio.requestPermissionsAsync();
+      if (permission.status !== "granted") {
+        console.error("마이크 권한 거부됨");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/calls`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patient_id: PATIENT_ID, call_type: CALL_TYPE }),
+      });
+
+      console.log("2. [API 응답 상태]:", response.status);
+
+      if (!response.ok) throw new Error(`통화 시작 실패: ${response.status}`);
+
+      const data = await response.json();
+      console.log("3. [세션 데이터 수신]:", data);
+
+      setSessionId(data.session_id);
+      connectWebSocket(data.websocket_url);
+    } catch (error) {
+      console.error("❌ 통화 시작 단계 에러:", error);
+    }
+  }
+
+  function connectWebSocket(websocketUrl: string) {
+    console.log("4. [WS 연결 시도]:", websocketUrl);
+    const ws = new WebSocket(websocketUrl);
+    ws.binaryType = "arraybuffer";
+
+    ws.onopen = () => {
+      console.log("✅ [WS 연결 성공]");
+      socketRef.current = ws;
+      startRecording();
+    };
+
+    ws.onmessage = async (event) => {
+      console.log("📥 [WS 데이터 수신 성공] 데이터 크기:", event.data.byteLength, "bytes");
+      if (event.data instanceof ArrayBuffer) {
+        console.log("🎵 AI 음성 재생 프로세스 시작...");
+        await playBinaryAudio(event.data);
+      } else {
+      console.log("❓ 바이너리가 아닌 데이터 수신:", event.data);
       }
     };
-  }, []);
 
-  // 3. 상태(Status) 변화에 따른 자동 녹음 시작/중지
-  useEffect(() => {
-    if (status === "listening") {
-      startRecording();
-    } else {
-      stopRecording();
+    ws.onerror = (error: any) => console.error("❌ [WS 오류 상세]:", error.message || error);
+    ws.onclose = () => console.log("웹소켓 종료됨");
+  }
+
+  async function endCall() {
+    try {
+      console.log("5. [API 요청] 통화 종료 시도, 세션:", sessionId);
+      await cleanup();
+
+      if (sessionId) {
+        const response = await fetch(`${API_BASE_URL}/calls/${sessionId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ patient_id: 1 }),
+        });
+
+        const result = await response.json();
+        console.log("6. [종료 API 결과]:", result);
+      }
+      router.push("/patient_main");
+    } catch (error) {
+      console.error("❌ 통화 종료 실패:", error);
+      router.push("/patient_main");
     }
-  }, [status]);
+  }
 
-  // 4. 녹음 시작 함수
+  // --- 녹음 및 음성 처리 로직 ---
+
   async function startRecording() {
     try {
-      // 이미 녹음 중이라면 중복 실행 방지
-      if (recordingRef.current) return;
-
-      console.log('녹음 준비 중...');
+      if (recordingRef.current || isProcessingRef.current) return;
+      setStatus("listening");
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
       });
 
-      const { recording: newRecording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      
-      setRecording(newRecording);
-      recordingRef.current = newRecording; // Ref에 저장 (클린업용)
-      console.log('녹음 시작됨');
-    } catch (err) {
-      console.error('녹음 시작 실패:', err);
+      const { recording } = await Audio.Recording.createAsync({
+        ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
+        isMeteringEnabled: true,
+      });
+      recordingRef.current = recording;
+      lastVoiceTimeRef.current = Date.now();
+      startSilenceDetection();
+      console.log("녹음 시작됨");
+    } catch (error) {
+      console.error("녹음 시작 실패:", error);
     }
   }
 
-  // 5. 녹음 중지 함수
-  async function stopRecording() {
-    if (!recordingRef.current) return;
+  function startSilenceDetection() {
+    if (meteringTimerRef.current) clearInterval(meteringTimerRef.current);
+    meteringTimerRef.current = setInterval(async () => {
+      const recording = recordingRef.current;
+      if (!recording || isProcessingRef.current) return;
+      try {
+        const status = await recording.getStatusAsync();
+        if (!status.isRecording) return;
+        const metering = status.metering;
 
-    try {
-      console.log('녹음 중지 중...');
-      const targetRecording = recordingRef.current;
-      recordingRef.current = null; // Ref 비우기
-      setRecording(null);
+        // 마이크 수치 모니터링 로그
+        console.log("🎤 현재 마이크 수치:", metering, "| 기준점:", SILENCE_THRESHOLD);
 
-      await targetRecording.stopAndUnloadAsync();
-      const uri = targetRecording.getURI();
-      console.log('녹음 완료, 파일 위치:', uri);
-
-      // TODO: 서버 전송 로직 (FileSystem 등을 통해 읽어서 소켓 전송)
-    } catch (err) {
-      console.error('녹음 중지 실패:', err);
-    }
-  }
-
-  // 6. 소켓 메시지 수신 처리
-  useEffect(() => {
-    const ws = voiceSocket as any;
-    if (ws) {
-      ws.onmessage = (event: any) => {
-        if (event.data instanceof ArrayBuffer) {
-          console.log("AI 음성 수신:", event.data.byteLength);
-          setStatus("speaking");
+        if (typeof metering === "number") {
+          if (metering > SILENCE_THRESHOLD) lastVoiceTimeRef.current = Date.now();
+          if (Date.now() - lastVoiceTimeRef.current >= SILENCE_LIMIT_MS) {
+            console.log("✅ 2초 침묵 감지 → 전송");
+            await stopRecordingAndSend();
+          }
         }
-      };
+      } catch (e) { console.error("침묵 감지 에러:", e); }
+    }, METERING_INTERVAL_MS);
+  }
+
+  async function stopRecordingAndSend() {
+    if (!recordingRef.current) return;
+    try {
+      isProcessingRef.current = true;
+      const recording = recordingRef.current;
+      recordingRef.current = null;
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      console.log("녹음 완료:", uri);
+      if (uri) await sendRecordingToServer(uri);
+    } catch (e) {
+      console.error("녹음 처리 실패:", e);
+      isProcessingRef.current = false;
+      startRecording();
     }
-    return () => {
-      if (ws) ws.onmessage = null;
-    };
-  }, []);
+  }
 
+  async function sendRecordingToServer(uri: string) {
+    try {
+      const ws = socketRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        console.log("웹소켓 연결 없음");
+        isProcessingRef.current = false;
+        return;
+      }
+
+      // 1. 파일을 Base64 문자열로 읽어옵니다. (legacy 경로 사용)
+      const base64Audio = await FileSystem.readAsStringAsync(uri, {
+        encoding: "base64" as any, 
+      });
+
+      // 2. [핵심] Base64 문자열을 순수 바이트(Uint8Array)로 변환합니다.
+      // atob는 base64를 디코딩하고, Uint8Array.from은 이를 바이트 배열로 만듭니다.
+      const binaryAudio = Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0));
+
+      // 3. JSON으로 감싸지 않고, 순수 바이트 데이터만 전송합니다.
+      ws.send(binaryAudio); 
+      
+      console.log("✅ 순수 m4a 바이트 전송 완료");
+    } catch (e) {
+      console.error("❌ 서버 전송 에러:", e);
+      isProcessingRef.current = false;
+      startRecording(); // 에러 발생 시 다시 녹음 모드로 복구
+    }
+  }
+
+  async function playBinaryAudio(arrayBuffer: ArrayBuffer) {
+    try {
+      setStatus("speaking");
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true });
+
+      let binary = "";
+      const bytes = new Uint8Array(arrayBuffer);
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      const base64Audio = base64Encode(binary);
+
+      // (FileSystem as any)를 사용하여 속성 인식 문제 해결
+      const fileUri = `${(FileSystem as any).cacheDirectory}ai-res-${Date.now()}.mp3`;
+
+      await (FileSystem as any).writeAsStringAsync(fileUri, base64Audio, {
+        encoding: "base64" as any,
+      });
+
+      const { sound } = await Audio.Sound.createAsync({ uri: fileUri });
+      console.log("▶️ AI 답변 재생 시작");
+      sound.setOnPlaybackStatusUpdate(async (ps) => {
+        if (ps.isLoaded && ps.didJustFinish) {
+          await sound.unloadAsync();
+          console.log("AI 답변 재생 종료");
+          isProcessingRef.current = false;
+          startRecording();
+        }
+      });
+      await sound.playAsync();
+    } catch (e) {
+      console.error("❌ 음성 재생 실패:", e);
+      isProcessingRef.current = false;
+      startRecording();
+    }
+  }
+
+  async function cleanup() {
+    if (meteringTimerRef.current) clearInterval(meteringTimerRef.current);
+    if (recordingRef.current) try { await recordingRef.current.stopAndUnloadAsync(); } catch (e) {}
+    if (socketRef.current) socketRef.current.close();
+    isProcessingRef.current = true;
+  }
+
+  // --- UI 렌더링 (동일) ---
   const current = statusText[status];
-
   return (
     <View style={styles.container}>
       <View style={styles.topBar}>
         <View style={styles.statusLeft}>
-          <View style={styles.greenDot} />
-          <Text style={styles.topText}>{current.top}</Text>
+          <View style={styles.greenDot} /><Text style={styles.topText}>{current.top}</Text>
         </View>
         <Text style={styles.timer}>00:17</Text>
       </View>
-
       <View style={styles.centerArea}>
-        <Animated.View
-          style={[
-            styles.avatarOuter,
-            status !== "connecting" && { transform: [{ scale: pulseAnim }] },
-          ]}
-        >
-          <View style={styles.avatarInner}>
-            <Text style={styles.botEmoji}>🤖</Text>
-          </View>
+        <Animated.View style={[styles.avatarOuter, status !== "connecting" && { transform: [{ scale: pulseAnim }] }]}>
+          <View style={styles.avatarInner}><Text style={styles.botEmoji}>🤖</Text></View>
         </Animated.View>
-
         <Text style={styles.title}>{current.main}</Text>
         <Text style={styles.subtitle}>{current.sub}</Text>
-
-        <View style={styles.voiceBox}>
-          <Text style={styles.voiceDots}>{current.dots}</Text>
-        </View>
+        <View style={styles.voiceBox}><Text style={styles.voiceDots}>{current.dots}</Text></View>
       </View>
-
       <View style={styles.bottomArea}>
-        <TouchableOpacity style={styles.speakerButton}>
-          <Text style={styles.speakerIcon}>🔊</Text>
-        </TouchableOpacity>
+        <TouchableOpacity style={styles.speakerButton}><Text style={styles.speakerIcon}>🔊</Text></TouchableOpacity>
         <Text style={styles.speakerText}>스피커</Text>
-
-        <TouchableOpacity 
-          style={styles.endButton} 
-          onPress={() => router.push("/patient_main")}
-        >
-          <Text style={styles.endIcon}>📞</Text>
-        </TouchableOpacity>
-
-        <View style={styles.testButtons}>
-          <TouchableOpacity onPress={() => setStatus("connecting")}>
-            <Text style={styles.testText}>연결</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setStatus("listening")}>
-            <Text style={styles.testText}>듣기</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setStatus("speaking")}>
-            <Text style={styles.testText}>말하기</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={styles.endButton} onPress={endCall}><Text style={styles.endIcon}>📞</Text></TouchableOpacity>
       </View>
     </View>
   );
 }
 
-// 기존 스타일 시트는 그대로 유지하세요!
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#1A1A1A" },
   topBar: { flexDirection: "row", justifyContent: "space-between", padding: 50, paddingTop: 60 },
@@ -230,6 +321,4 @@ const styles = StyleSheet.create({
   speakerText: { color: "#FFF", opacity: 0.6, marginBottom: 40 },
   endButton: { width: 72, height: 72, borderRadius: 36, backgroundColor: "#FF4444", alignItems: "center", justifyContent: "center", transform: [{ rotate: "135deg" }] },
   endIcon: { fontSize: 32, color: "#FFF" },
-  testButtons: { flexDirection: "row", marginTop: 20, gap: 20 },
-  testText: { color: "#FFF", opacity: 0.3 }
 });

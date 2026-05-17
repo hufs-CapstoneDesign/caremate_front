@@ -1,27 +1,16 @@
-import { useRouter } from 'expo-router';
-import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import RNCallKeep from 'react-native-callkeep';
+import { useRouter } from "expo-router";
+import React from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function IncomingCallScreen() {
-    const router = useRouter();
-    const uuid = 'fixed-uuid-for-demo';
+  const router = useRouter();
 
-  // 수락: 통화 화면으로 이동 (replace를 써서 뒤로가기 방지)
-    const handleAccept = () => {
-        RNCallKeep.answerIncomingCall(uuid);
-        router.replace('/patient_call');
-    };
+  const handleAccept = () => {
+    router.replace("/patient_call");
+  };
 
-  // 거절: 이전 화면으로 돌아가거나 앱 닫기
   const handleReject = () => {
-    RNCallKeep.endCall(uuid);
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      // 앱이 첫 화면으로 켜졌을 경우의 처리
-      router.replace('/'); 
-    }
+    router.replace("/patient_main");
   };
 
   return (
@@ -32,16 +21,18 @@ export default function IncomingCallScreen() {
       </View>
 
       <View style={styles.buttonRow}>
-        <TouchableOpacity 
-          style={[styles.circle, styles.decline]} 
+        <TouchableOpacity
+          style={[styles.circle, styles.decline]}
           onPress={handleReject}
+          activeOpacity={0.8}
         >
           <Text style={styles.btnText}>거절</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={[styles.circle, styles.accept]} 
+        <TouchableOpacity
+          style={[styles.circle, styles.accept]}
           onPress={handleAccept}
+          activeOpacity={0.8}
         >
           <Text style={styles.btnText}>수락</Text>
         </TouchableOpacity>
@@ -51,13 +42,46 @@ export default function IncomingCallScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1a1a1a', justifyContent: 'space-around', alignItems: 'center' },
-  header: { alignItems: 'center' },
-  status: { color: '#aaa', fontSize: 18, marginBottom: 8 },
-  name: { color: '#fff', fontSize: 36, fontWeight: '700' },
-  buttonRow: { flexDirection: 'row', width: '100%', justifyContent: 'space-evenly' },
-  circle: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center' },
-  decline: { backgroundColor: '#FF3B30' },
-  accept: { backgroundColor: '#34C759' },
-  btnText: { color: '#fff', fontWeight: '600', fontSize: 16 }
+  container: {
+    flex: 1,
+    backgroundColor: "#1a1a1a",
+    justifyContent: "space-around",
+    alignItems: "center",
+  },
+  header: {
+    alignItems: "center",
+  },
+  status: {
+    color: "#aaa",
+    fontSize: 18,
+    marginBottom: 8,
+  },
+  name: {
+    color: "#fff",
+    fontSize: 36,
+    fontWeight: "700",
+  },
+  buttonRow: {
+    flexDirection: "row",
+    width: "100%",
+    justifyContent: "space-evenly",
+  },
+  circle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  decline: {
+    backgroundColor: "#FF3B30",
+  },
+  accept: {
+    backgroundColor: "#34C759",
+  },
+  btnText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
+  },
 });
