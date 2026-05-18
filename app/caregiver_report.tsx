@@ -1,7 +1,7 @@
 import {
   Activity,
   AlertCircle,
-  Calendar as CalendarIcon, // 이름 중복 방지를 위해 변경
+  Calendar as CalendarIcon,
   ChevronLeft,
   MessageCircle,
   Pill,
@@ -9,113 +9,92 @@ import {
   Utensils
 } from 'lucide-react-native';
 import styled from 'styled-components/native';
-
-import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { LocaleConfig, Calendar as RNcalendar } from 'react-native-calendars';
 
-LocaleConfig.locales['kr'] = {
-  monthNames: ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'],
-  monthNamesShort: ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'],
-  dayNames: ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'],
-  dayNamesShort: ['일','월','화','수','목','금','토'],
-  today: '오늘'
-};
-LocaleConfig.defaultLocale = 'kr';
-
 // --- 타입 정의 ---
 interface ProgressProps {
-  width: string;
-  color: string;
+  $width: string;  // Transient props로 밑줄 에러 해결
+  $color: string;
 }
+
 interface ReportDetail {
-  medication_summary: string;
-  meal_summary: string;
-  status_summary: string;
+  id: string;
+  report_date: string;
+  mood: string | null;
+  medication: {
+    time: string | null;
+    taken: boolean;
+    source: string;
+    drug_name: string | null;
+  } | null;
+  meal: {
+    menu: string | null;
+    time: string | null;
+    eaten: boolean;
+    source: string;
+  } | null;
+  physical: {
+    source: string;
+    condition: string | null;
+    complaints: string | null;
+  } | null;
+  call_summary: string | null;
+  daily_activity: string | null;
   session_count: number;
   last_updated: string;
 }
 
-const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5"; // 테스트용 고정 환자 ID
+const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5"; 
+
 export default function CaregiverReport() {
-  //const { patient_id } = useLocalSearchParams();
-  const patient_id = PATIENT_ID; // 테스트용 고정 환자 ID 사용
-  console.log("테스트용 환자 ID:", patient_id); // 터미널이나 디버거에서 확인
-  const [reportDates, setReportDates] = useState<string[]>([]);
+  const patient_id = PATIENT_ID; 
   const [reportDetail, setReportDetail] = useState<ReportDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCalendarVisible, setCalendarVisible] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  
-// 1. 컴포넌트 마운트 시 초기 로딩 상태 해제 (필요한 경우)
-useEffect(() => {
-  setIsLoading(false);
-}, []);
+  const [selectedDate, setSelectedDate] = useState("2026-05-18"); // 가이드 예시 날짜 [cite: 6]
 
-// 2. 환자 ID 또는 선택된 날짜가 변경될 때마다 실행되는 핵심 로직
-useEffect(() => {
-  const fetchReportDetail = async () => {
-    if (!patient_id || !selectedDate) return;
-
-    try {
-      // API 명세서 경로: /reports/{patient_id}/{date}
-      const url = `http://192.168.219.50:8000/reports/${patient_id}/${selectedDate}`;
-      console.log("📡 데이터 요청 중:", url);
-
-      const response = await fetch(url);
-      const textData = await response.text(); 
-      
-      console.log("상태 코드:", response.status);
-      console.log("서버 응답:", textData);
-
-      if (response.status === 200) {
-        const data = JSON.parse(textData);
-        setReportDetail(data); // 성공 시 데이터 저장
-      } else {
-        console.error(`❌ 서버 에러 (${response.status}):`, textData);
-        setReportDetail(null); // 에러 발생 시 초기화
+  useEffect(() => {
+    const fetchReportDetail = async () => {
+      if (!patient_id || !selectedDate) return;
+      setIsLoading(true);
+      try {
+        // API 가이드 경로 적용 [cite: 4, 6]
+        const url = `http://192.168.0.47:8000/reports/${patient_id}/${selectedDate}`;
+        const response = await fetch(url);
+        
+        if (response.status === 200) {
+          const data: ReportDetail = await response.json();
+          
+          setReportDetail(data);
+        } else {
+          setReportDetail(null);
+        }
+      } catch (error) {
+        console.error("⚠️ 상세 리포트 로딩 실패:", error);
+        setReportDetail(null);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("⚠️ 상세 리포트 로딩 실패:", error);
-      setReportDetail(null);
-    }
-  };
+    };
 
-  fetchReportDetail();
-}, [patient_id, selectedDate]); // 의존성 배열: ID나 날짜가 바뀌면 재실행
+    fetchReportDetail();
+  }, [patient_id, selectedDate]);
 
-  const days = [
-    { d: '일', n: '10' },
-    { d: '월', n: '11' },
-    { d: '화', n: '12', active: true }, // ... 생략
-  ];
-  if (isLoading) return <ActivityIndicator style={{ flex: 1 }} />;
+  if (isLoading) return <View style={{flex:1, justifyContent:'center'}}><ActivityIndicator size="large" /></View>;
+
   return (
     <Container>
       <Header>
-        <TouchableOpacity>
-          <ChevronLeft color="#333" size={24} />
-        </TouchableOpacity>
+        <TouchableOpacity><ChevronLeft color="#333" size={24} /></TouchableOpacity>
         <HeaderTitle>간병 리포트</HeaderTitle>
-        
-        {/* 수정 포인트: 캘린더 아이콘 버튼에 onPress 추가 */}
         <TouchableOpacity onPress={() => setCalendarVisible(true)}>
           <CalendarIcon color="#333" size={22} />
         </TouchableOpacity>
       </Header>
 
-      <DateBar>
-        {days.map((item, index) => (
-          <DateItem key={index} active={item.active}>
-            <DayText active={item.active}>{item.d}</DayText>
-            <NumText active={item.active}>{item.n}</NumText>
-            {item.active && <ActiveDot />}
-          </DateItem>
-        ))}
-      </DateBar>
-
-      {/* 캘린더 모달 */}
+      {/* 캘린더 모달 복구 */}
       <Modal
         visible={isCalendarVisible}
         animationType="fade"
@@ -149,17 +128,13 @@ useEffect(() => {
         <SummaryBanner>
           <ProfileSection>
             <Avatar source={{ uri: 'https://via.placeholder.com/80' }} />
-            <StatusBadge><StatusText>안정</StatusText></StatusBadge>
+            <StatusBadge><StatusText>분석완료</StatusText></StatusBadge>
           </ProfileSection>
           <SummaryInfo>
-            <PatientName>김정숙 어르신</PatientName>
-            <MainStatus>오늘 하루는 <Highlight>매우 안정적</Highlight>이었어요.</MainStatus>
+            <PatientName>김순자 어르신</PatientName>
+            <MainStatus>{selectedDate} 리포트</MainStatus>
           </SummaryInfo>
         </SummaryBanner>
-        <ChatOriginButton activeOpacity={0.8} onPress={() => Alert.alert('대화 원본', '전체 대화 텍스트 화면으로 이동합니다.')}>
-          <MessageCircle color="#4A90E2" size={20} />
-          <ChatOriginButtonText>전체 대화 원본 보기</ChatOriginButtonText>
-        </ChatOriginButton>
 
         <DetailSection>
           <SectionLabel>상세 지표 (AI 분석)</SectionLabel>
@@ -167,12 +142,25 @@ useEffect(() => {
             <MetricRow>
               <MetricLabelGroup>
                 <Utensils size={18} color="#FF9F43" />
-                <MetricTitle>식사 섭취</MetricTitle>
+                <MetricTitle>식사 여부</MetricTitle>
               </MetricLabelGroup>
               <MetricValueGroup>
-                <ProgressBarBase><ProgressBar width="100%" color="#FF9F43" /></ProgressBarBase>
-                <ScoreText>{reportDetail?.meal_summary || '정보 없음'}</ScoreText>
-                <TrustIconPlaceholder />
+                {['아침', '점심', '저녁'].map((time) => {
+                  // API 데이터의 time과 일치하고 eaten이 true인지 확인 [cite: 27-28, 69-71]
+                  const isEaten = reportDetail?.meal?.time === time && reportDetail?.meal?.eaten;
+                  return (
+                    <MealStatus key={time}>
+                      <MealText>{time}</MealText>
+                      <StatusIconWrapper isEaten={isEaten}>
+                        {isEaten ? (
+                          <Smile size={14} color="#FFF" /> // 먹었으면 체크(스마일) 표시
+                        ) : (
+                          <View style={{ width: 14, height: 14 }} /> // 안 먹었으면 빈 칸
+                        )}
+                      </StatusIconWrapper>
+                    </MealStatus>
+                  );
+                })}
               </MetricValueGroup>
             </MetricRow>
 
@@ -182,11 +170,18 @@ useEffect(() => {
                 <MetricTitle>일일 복약</MetricTitle>
               </MetricLabelGroup>
               <MetricValueGroup>
-                <ProgressBarBase><ProgressBar width="50%" color="#FF6B6B" /></ProgressBarBase>
-                <ScoreText>{reportDetail?.medication_summary || '정보 없음'}</ScoreText>
-                <TouchableOpacity onPress={() => Alert.alert('AI 신뢰도 주의', '환자의 답변이 불분명하여 복약 여부 판독이 어렵습니다.')}>
-                  <AlertCircle size={16} color="#FF6B6B" style={{ marginLeft: 8 }} />
-                </TouchableOpacity>
+                {['아침', '저녁'].map((time) => {
+                  // 서버 응답: medication.time이 "아침"이고 taken이 true인지 확인
+                  const isTaken = reportDetail?.medication?.time === time && reportDetail?.medication?.taken === true;
+                  return (
+                    <StatusItem key={time}>
+                      <StatusLabel>{time}</StatusLabel>
+                      <StatusCircle isActive={isTaken} activeColor="#FF6B6B">
+                        {isTaken && <Smile size={14} color="#FFF" />}
+                      </StatusCircle>
+                    </StatusItem>
+                  );
+                })}
               </MetricValueGroup>
             </MetricRow>
 
@@ -196,9 +191,9 @@ useEffect(() => {
                 <MetricTitle>신체 컨디션</MetricTitle>
               </MetricLabelGroup>
               <MetricValueGroup>
-                <ProgressBarBase><ProgressBar width="85%" color="#4A90E2" /></ProgressBarBase>
-                <ScoreText>{reportDetail?.status_summary || '정보 없음'}</ScoreText>
-                <TrustIconPlaceholder />
+                <SimpleValueText>
+                  {reportDetail?.physical?.condition ?? "정보 없음"}
+                </SimpleValueText>
               </MetricValueGroup>
             </MetricRow>
 
@@ -208,79 +203,87 @@ useEffect(() => {
                 <MetricTitle>감정 상태</MetricTitle>
               </MetricLabelGroup>
               <MetricValueGroup>
-                <ProgressBarBase><ProgressBar width="92%" color="#2ECC71" /></ProgressBarBase>
-                <ScoreText>92점</ScoreText>
-                <TouchableOpacity onPress={() => Alert.alert('AI 신뢰도 주의', '감정 표현의 맥락이 불분명하여 분석 결과가 부정확할 수 있습니다.')}>
-                  <AlertCircle size={16} color="#FF6B6B" style={{ marginLeft: 8 }} />
-                </TouchableOpacity>
+                <SimpleValueText>
+                  {reportDetail?.mood ?? "정보 없음"}
+                </SimpleValueText>
               </MetricValueGroup>
             </MetricRow>
           </DetailCard>
-          <TrustGuideText>* 주의 표시(<AlertCircle size={10} color="#FF6B6B" />)는 AI 해석 신뢰도가 낮아, 보호자의 확인이 필요함을 의미합니다.</TrustGuideText>
         </DetailSection>
 
         <SectionHeader>
           <SectionLabel>통화 요약</SectionLabel>
-          <TouchableOpacity><ViewMore>전체보기</ViewMore></TouchableOpacity>
         </SectionHeader>
-
         <Timeline>
-          <TimelineItem>
-            <TimeText>복약/건강</TimeText>
-            <EventBox>
-              <IconWrapper backgroundColor="#EEF5FF"><Utensils color="#4A90E2" size={16} /></IconWrapper>
-              <EventInfo>
-                <EventTitle>약 복용 완료</EventTitle>
-                <EventSub>아침 혈압약과 당뇨약 모두 복용하였습니다.</EventSub>
-              </EventInfo>
-            </EventBox>
-          </TimelineItem>
-          <TimelineItem>
-            <TimeText>식사</TimeText>
-            <EventBox>
-              <IconWrapper backgroundColor="#EEF5FF"><Utensils color="#4A90E2" size={16} /></IconWrapper>
-              <EventInfo>
-                <EventTitle>아침 식사 완료</EventTitle>
-                <EventSub>아침에 전복죽을 드셨습니다. 점심은 아직 드시지 않으셨습니다.</EventSub>
-              </EventInfo>
-            </EventBox>
-          </TimelineItem>
-          <TimelineItem>
-            <TimeText>정서/감정</TimeText>
-            <EventBox>
-              <IconWrapper backgroundColor="#EEF5FF"><Utensils color="#4A90E2" size={16} /></IconWrapper>
-              <EventInfo>
-                <EventTitle>정서 상태 안정적</EventTitle>
-                <EventSub>전반적으로 기분이 좋다고 하셨으나, 자녀들 얼굴이 보고 싶다고 하셨습니다. 이웃 김 선생님과 어제 이야기를 나눴다고 기억하고 계셨습니다.</EventSub>
-              </EventInfo>
-            </EventBox>
-          </TimelineItem>
-          <TimelineItem>
-            <TimeText>일상/기타</TimeText>
-            <EventBox>
-              <IconWrapper backgroundColor="#EEF5FF"><Utensils color="#4A90E2" size={16} /></IconWrapper>
-              <EventInfo>
-                <EventTitle>TV 시청 및 산책 예정</EventTitle>
-                <EventSub>오전에 TV를 보며 시간을 보내셨고, 오후에는 날씨가 좋으면 산책을 나갈 계획이라고 하셨습니다.</EventSub>
-              </EventInfo>
-            </EventBox>
-          </TimelineItem>
+          {[
+            { 
+              key: 'health', 
+              label: '건강/복약', 
+              icon: <Pill size={16} color="#FF6B6B" />, 
+              bgColor: '#FFF5F5',
+              content: reportDetail?.physical?.condition ?? "기록된 건강 정보가 없습니다." 
+            },
+            { 
+              key: 'meal', 
+              label: '식사 기록', 
+              icon: <Utensils size={16} color="#FF9F43" />, 
+              bgColor: '#FFF9F2',
+             content: reportDetail?.meal?.menu 
+               ? `${reportDetail.meal.time ?? '식사'}: ${reportDetail.meal.menu}` 
+                : "기록된 식사 메뉴가 없습니다."
+            },
+            { 
+              key: 'emotion', 
+              label: '정서/감정', 
+              icon: <Smile size={16} color="#2ECC71" />, 
+              bgColor: '#F2FBF5',
+              content: reportDetail?.mood ?? "감정 분석 데이터가 없습니다." 
+            },
+            { 
+              key: 'daily', 
+              label: '일상/기타', 
+              icon: <MessageCircle size={16} color="#4A90E2" />, 
+              bgColor: '#F0F7FF',
+              content: reportDetail?.call_summary ?? "기록된 일상 내용이 없습니다." 
+            }
+          ].map((section) => (
+            <TimelineItem key={section.key}>
+              {/* TimeText(왼쪽 라벨)를 제거하고 EventBox만 꽉 차게 배치 */}
+              <EventBox>
+                <IconWrapper backgroundColor={section.bgColor}>
+                  {section.icon}
+                </IconWrapper>
+                <EventInfo style={{ flex: 1 }}>
+                  <EventTitle>{section.label}</EventTitle>
+                  <EventSub numberOfLines={3}>
+                    {section.content}
+                  </EventSub>
+                </EventInfo>
+              </EventBox>
+            </TimelineItem>
+          ))}
         </Timeline>
       </Content>
     </Container>
   );
-};
+}
 
+// --- 스타일 정의 ($ 변수 적용) ---
+const ProgressBar = styled.View<ProgressProps>` 
+  height: 100%; 
+  width: ${props => props.$width}; 
+  background-color: ${props => props.$color}; 
+`;
 
-// --- 스타일 정의는 기존과 동일하게 유지 ---
+const styles = StyleSheet.create({
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)', justifyContent: 'center', alignItems: 'center' },
+  calendarContainer: { width: '90%', backgroundColor: '#fff', borderRadius: 20, padding: 15, elevation: 10 }
+});
+
+// ... 나머지 Styled-components 정의는 기존과 동일
 const Container = styled.SafeAreaView` flex: 1; background-color: #F8F9FB; `;
 const Header = styled.View` flex-direction: row; justify-content: space-between; align-items: center; padding: 15px 20px; background-color: #FFF; `;
 const HeaderTitle = styled.Text` font-size: 18px; font-weight: 700; color: #333; `;
-const DateBar = styled.View` flex-direction: row; justify-content: space-between; padding: 15px 20px; background-color: #FFF; border-bottom-width: 1px; border-bottom-color: #F0F0F0; `;
-const DateItem = styled.TouchableOpacity<{ active?: boolean }>` align-items: center; padding: 8px 10px; border-radius: 12px; background-color: ${props => props.active ? '#4A90E2' : 'transparent'}; `;
-const DayText = styled.Text<{ active?: boolean }>` font-size: 12px; color: ${props => props.active ? '#FFF' : '#BBB'}; margin-bottom: 4px; `;
-const NumText = styled.Text<{ active?: boolean }>` font-size: 15px; font-weight: 700; color: ${props => props.active ? '#FFF' : '#333'}; `;
-const ActiveDot = styled.View` width: 4px; height: 4px; border-radius: 2px; background-color: #FFF; margin-top: 4px; `;
 const Content = styled.ScrollView` padding: 20px; `;
 const SummaryBanner = styled.View` flex-direction: row; align-items: center; background-color: #FFF; padding: 20px; border-radius: 20px; margin-bottom: 25px; `;
 const ProfileSection = styled.View` position: relative; margin-right: 20px; `;
@@ -288,9 +291,8 @@ const Avatar = styled.Image` width: 70px; height: 70px; border-radius: 35px; bac
 const StatusBadge = styled.View` position: absolute; bottom: 0; align-self: center; background-color: #2ECC71; padding: 2px 8px; border-radius: 10px; border-width: 2px; border-color: #FFF; `;
 const StatusText = styled.Text` color: #FFF; font-size: 10px; font-weight: 700; `;
 const SummaryInfo = styled.View` flex: 1; `;
-const PatientName = styled.Text` font-size: 14px; color: #888; margin-bottom: 4px; `;
+const PatientName = styled.Text` font-size: 30px; color: #000000; margin-bottom: 4px; `;
 const MainStatus = styled.Text` font-size: 18px; font-weight: 700; color: #333; line-height: 24px; `;
-const Highlight = styled.Text` color: #4A90E2; `;
 const DetailSection = styled.View` margin-bottom: 25px; `;
 const SectionLabel = styled.Text` font-size: 16px; font-weight: 700; color: #333; margin-bottom: 12px; `;
 const DetailCard = styled.View` background-color: #FFF; border-radius: 20px; padding: 20px; `;
@@ -299,12 +301,8 @@ const MetricLabelGroup = styled.View` flex-direction: row; align-items: center; 
 const MetricTitle = styled.Text` font-size: 14px; color: #555; margin-left: 10px; `;
 const MetricValueGroup = styled.View` flex-direction: row; align-items: center; justify-content: flex-end; flex: 1; `;
 const ProgressBarBase = styled.View` width: 80px; height: 6px; background-color: #F0F2F5; border-radius: 3px; margin-right: 10px; overflow: hidden; `;
-const ProgressBar = styled.View<ProgressProps>` height: 100%; width: ${props => props.width}; background-color: ${props => props.color}; `;
-const ScoreText = styled.Text` font-size: 14px; font-weight: 700; color: #333; width: 45px; text-align: right; `;
-const TrustIconPlaceholder = styled.View` width: 16px; margin-left: 8px; `;
-const TrustGuideText = styled.Text` font-size: 11px; color: #AAA; margin-top: 10px; text-align: right; `;
+const ScoreText = styled.Text` font-size: 14px; font-weight: 700; color: #333; width: 80px; text-align: right; `;
 const SectionHeader = styled.View` flexDirection: row; justify-content: space-between; align-items: center; margin-bottom: 15px; `;
-const ViewMore = styled.Text` font-size: 13px; color: #999; `;
 const Timeline = styled.View``;
 const TimelineItem = styled.View` flex-direction: row; align-items: center; margin-bottom: 12px; `;
 const TimeText = styled.Text` width: 50px; font-size: 13px; color: #999; `;
@@ -313,36 +311,54 @@ const IconWrapper = styled.View<{ backgroundColor: string }>` width: 36px; heigh
 const EventInfo = styled.View``;
 const EventTitle = styled.Text` font-size: 14px; font-weight: 600; color: #333; margin-bottom: 2px; `;
 const EventSub = styled.Text` font-size: 12px; color: #999; `;
-const ChatOriginButton = styled.TouchableOpacity`
-  flex-direction: row;
+const MealStatus = styled.View`
   align-items: center;
-  justify-content: center;
-  background-color: #FFF;
-  border-width: 1px;
-  border-color: #4A90E2;
-  padding: 16px;
-  border-radius: 14px;
-  margin-top: 10px;
-  margin-bottom: 20px;
+  margin-left: 15px;
 `;
-const ChatOriginButtonText = styled.Text` font-size: 15px; font-weight: 600; color: #4A90E2; margin-left: 8px; `;
 
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  calendarContainer: {
-    width: '90%',
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 15,
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  }
-});
+const MealText = styled.Text`
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 4px;
+`;
+
+const StatusIconWrapper = styled.View<{ isEaten?: boolean }>`
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  background-color: ${props => props.isEaten ? '#FF9F43' : '#F0F0F0'};
+  justify-content: center;
+  align-items: center;
+  border-width: 1px;
+  border-color: ${props => props.isEaten ? '#FF9F43' : '#DDD'};
+`;
+const StatusItem = styled.View`
+  align-items: center;
+  margin-left: 15px;
+`;
+
+const StatusLabel = styled.Text`
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 4px;
+`;
+
+// 아이콘을 감싸는 동그라미 (활성화 여부에 따라 색상 변경)
+const StatusCircle = styled.View<{ isActive?: boolean; activeColor: string }>`
+  width: 26px;
+  height: 26px;
+  border-radius: 13px;
+  background-color: ${props => props.isActive ? props.activeColor : '#F0F2F5'};
+  justify-content: center;
+  align-items: center;
+  border-width: 1px;
+  border-color: ${props => props.isActive ? props.activeColor : '#E0E0E0'};
+`;
+
+// 프로그레스 바 대신 사용할 텍스트 스타일
+const SimpleValueText = styled.Text`
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  text-align: right;
+`;
