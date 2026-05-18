@@ -32,46 +32,59 @@ interface ProgressProps {
 interface ReportDetail {
   medication_summary: string;
   meal_summary: string;
+  status_summary: string;
   session_count: number;
   last_updated: string;
 }
 
+const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5"; // 테스트용 고정 환자 ID
 export default function CaregiverReport() {
-  const { patient_id } = useLocalSearchParams();
-  console.log("넘어온 환자 ID:", patient_id); // 터미널이나 디버거에서 확인
+  //const { patient_id } = useLocalSearchParams();
+  const patient_id = PATIENT_ID; // 테스트용 고정 환자 ID 사용
+  console.log("테스트용 환자 ID:", patient_id); // 터미널이나 디버거에서 확인
   const [reportDates, setReportDates] = useState<string[]>([]);
   const [reportDetail, setReportDetail] = useState<ReportDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCalendarVisible, setCalendarVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   
+// 1. 컴포넌트 마운트 시 초기 로딩 상태 해제 (필요한 경우)
+useEffect(() => {
+  setIsLoading(false);
+}, []);
+
+// 2. 환자 ID 또는 선택된 날짜가 변경될 때마다 실행되는 핵심 로직
 useEffect(() => {
   const fetchReportDetail = async () => {
+    if (!patient_id || !selectedDate) return;
+
     try {
-      // 경로 파라미터: /reports/{patient_id}/{date}
-      const response = await fetch(
-        `http://172.16.2.28:8000/reports/${patient_id}/${selectedDate}`
-      );
+      // API 명세서 경로: /reports/{patient_id}/{date}
+      const url = `http://192.168.219.50:8000/reports/${patient_id}/${selectedDate}`;
+      console.log("📡 데이터 요청 중:", url);
 
-      if (response.status === 404) {
-        // 해당 날짜에 리포트가 없는 경우
-        setReportDetail(null);
-        return;
+      const response = await fetch(url);
+      const textData = await response.text(); 
+      
+      console.log("상태 코드:", response.status);
+      console.log("서버 응답:", textData);
+
+      if (response.status === 200) {
+        const data = JSON.parse(textData);
+        setReportDetail(data); // 성공 시 데이터 저장
+      } else {
+        console.error(`❌ 서버 에러 (${response.status}):`, textData);
+        setReportDetail(null); // 에러 발생 시 초기화
       }
-
-      const data = await response.json();
-      setReportDetail(data); // medication_summary, meal_summary 등 저장
     } catch (error) {
-      console.error("상세 리포트 로딩 실패:", error);
+      console.error("⚠️ 상세 리포트 로딩 실패:", error);
       setReportDetail(null);
     }
   };
 
-  if (patient_id && selectedDate) {
-    fetchReportDetail();
-  }
-  }, [patient_id, selectedDate]); // patient_id나 selectedDate가 바뀔 때마다 실행
-  
+  fetchReportDetail();
+}, [patient_id, selectedDate]); // 의존성 배열: ID나 날짜가 바뀌면 재실행
+
   const days = [
     { d: '일', n: '10' },
     { d: '월', n: '11' },
@@ -184,7 +197,7 @@ useEffect(() => {
               </MetricLabelGroup>
               <MetricValueGroup>
                 <ProgressBarBase><ProgressBar width="85%" color="#4A90E2" /></ProgressBarBase>
-                <ScoreText>85점</ScoreText>
+                <ScoreText>{reportDetail?.status_summary || '정보 없음'}</ScoreText>
                 <TrustIconPlaceholder />
               </MetricValueGroup>
             </MetricRow>
