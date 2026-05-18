@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { Activity, Bell, Calendar, User } from 'lucide-react-native';
+import { Activity, Bell, Calendar, User, Phone, Plus } from 'lucide-react-native';
 import React from 'react';
 import { TouchableOpacity, View } from 'react-native';
 import styled from 'styled-components/native';
@@ -50,17 +50,20 @@ const GuardianMain = () => {
             </MenuIconBox>
             <MenuText>리포트 열람</MenuText>
           </MenuButton>
-          <MenuButton>
-            <MenuIconBox backgroundColor="#FFF0F0">
-              <Activity color="#FF6B6B" size={28} />
-            </MenuIconBox>
-            <MenuText>전화 걸기</MenuText>
-          </MenuButton>
+        <MenuButton activeOpacity={0.7}>
+          <MenuIconBox backgroundColor="#FFF0F0">
+            {/* 아이콘을 Phone으로 변경하고, 옆의 파란색/초록색 버튼과 채도를 맞춘 연한 빨간색 적용 */}
+            <Phone color="#FF6B6B" size={28} />
+          </MenuIconBox>
+          <MenuText>전화 걸기</MenuText>
+        </MenuButton>
           <MenuButton onPress={() => router.push("/caregiver_scheduling")}>
-            <MenuIconBox backgroundColor="#ff7f7f">
-              <Activity color="#6bff75" size={28} />
-            </MenuIconBox>
-            <MenuText>AI 전화 스케줄링</MenuText>
+            {/* 배경색 명도/채도를 옆의 버튼들(#EEF5FF, #FFF0F0)과 맞춘 연한 초록색 계열로 변경 */}
+            <MenuIconBox backgroundColor="#E8F5E9">
+            {/* 아이콘을 '활동' 대신 '스케줄' 의미가 강한 시계(Clock) 또는 달력으로 변경 */}
+            <Calendar color="#2ECC71" size={28} />
+          </MenuIconBox>
+          <MenuText>전화 스케줄링</MenuText>
           </MenuButton>
         </MenuGrid>
 
@@ -85,18 +88,13 @@ const GuardianMain = () => {
           </NotiContent>
         </NotificationItem>
 
-        <SectionHeader>
-            <SectionTitle>내 환자 추가하기</SectionTitle>
-        </SectionHeader>
-
-        <MenuGrid>
-          <MenuButton>
-            <MenuIconBox backgroundColor="#EEF5FF">
-              <Calendar color="#4A90E2" size={28} />
-            </MenuIconBox>
-            <MenuText>+</MenuText>
-          </MenuButton>
-        </MenuGrid>
+        {/* 기존의 복잡한 추가 카드를 지우고 이 버튼으로 교체 */}
+        <AddPatientButton activeOpacity={0.6}>
+          <PlusIconWrapper>
+            <Plus color="#9CA3AF" size={18} />
+          </PlusIconWrapper>
+        <AddPatientText>내 환자 추가하기</AddPatientText>
+        </AddPatientButton>
       </Content>
     </Container>
   );
@@ -317,4 +315,37 @@ const NotiText = styled.Text`
 const NotiTime = styled.Text`
   font-size: 12px;
   color: #BBB;
+`;
+// --- 스타일 정의 추가/수정 ---
+
+const AddPatientButton = styled.TouchableOpacity`
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 60px;
+  border-width: 2px;
+  border-color: #D1D5DB; /* 연한 그레이 */
+  border-style: dashed; /* 점선 테두리 */
+  border-radius: 16px;
+  background-color: transparent;
+  margin-top: 10px;
+  margin-bottom: 30px;
+`;
+
+const AddPatientText = styled.Text`
+  font-size: 16px;
+  font-weight: 600;
+  color: #9CA3AF; /* 테두리와 맞춘 그레이 톤 */
+  margin-left: 8px;
+`;
+
+// 플러스 아이콘을 감싸는 원형 (선택 사항, 깔끔함을 위해 추가)
+const PlusIconWrapper = styled.View`
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  background-color: #F3F4F6;
+  justify-content: center;
+  align-items: center;
 `;
