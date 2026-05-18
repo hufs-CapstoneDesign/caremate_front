@@ -36,7 +36,7 @@ const GuardianMain = () => {
             <PatientInfo>
               <Avatar source={{ uri: 'https://via.placeholder.com/100' }} />
               <View>
-                <PatientName>김정숙 어르신</PatientName>
+                <PatientName>김순자 어르신</PatientName>
               </View>
             </PatientInfo>
           </CardHeader>
