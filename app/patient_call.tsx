@@ -12,7 +12,7 @@ import {
 } from "react-native";
 
 // --- 상수 및 설정 ---
-const API_BASE_URL = "http://192.168.0.3:8000"; 
+const API_BASE_URL = "http://192.168.219.50:8000"; 
 const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5";
 const CALL_TYPE = "voluntary"; 
 
@@ -20,7 +20,7 @@ type CallStatus = "connecting" | "listening" | "speaking";
 
 const SILENCE_LIMIT_MS = 2000;
 const METERING_INTERVAL_MS = 250;
-const SILENCE_THRESHOLD = -10; // 사용자 마이크 환경에 맞춘 설정
+const SILENCE_THRESHOLD = -20; // 사용자 마이크 환경에 맞춘 설정
 
 const statusText = {
   connecting: { top: "연결 중", main: "AI 케어봇", sub: "연결하고 있어요...", dots: "••••••" },
@@ -31,7 +31,7 @@ const statusText = {
 export default function CallScreen() {
   const [status, setStatus] = useState<CallStatus>("connecting");
   const [sessionId, setSessionId] = useState<string | null>(null);
-
+  const [aiMessage, setAiMessage] = useState<string>("");
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const recordingRef = useRef<Audio.Recording | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
@@ -100,15 +100,22 @@ export default function CallScreen() {
     };
 
     ws.onmessage = async (event) => {
-      console.log("📥 [WS 데이터 수신 성공] 데이터 크기:", event.data.byteLength, "bytes");
-      if (event.data instanceof ArrayBuffer) {
-        console.log("🎵 AI 음성 재생 프로세스 시작...");
+      // 1. 텍스트 데이터 수신 시 처리
+      if (typeof event.data === "string") {
+        console.log("📥 [텍스트 수신]:", event.data);
+        if (event.data === "END") {
+          console.log("🏁 대화 종료 신호 수신");
+          return;
+        }
+        // AI 답변 텍스트를 상태에 저장 (화면에 표시됨)
+        setAiMessage(event.data);
+      } 
+      // 2. 바이너리(음성) 데이터 수신 시 처리
+      else if (event.data instanceof ArrayBuffer) {
+        console.log("📥 [음성 바이트 수신] 크기:", event.data.byteLength);
         await playBinaryAudio(event.data);
-      } else {
-      console.log("❓ 바이너리가 아닌 데이터 수신:", event.data);
       }
     };
-
     ws.onerror = (error: any) => console.error("❌ [WS 오류 상세]:", error.message || error);
     ws.onclose = () => console.log("웹소켓 종료됨");
   }
@@ -287,6 +294,11 @@ export default function CallScreen() {
         <Animated.View style={[styles.avatarOuter, status !== "connecting" && { transform: [{ scale: pulseAnim }] }]}>
           <View style={styles.avatarInner}><Text style={styles.botEmoji}>🤖</Text></View>
         </Animated.View>
+        <View style={styles.messageContainer}>
+          <Text style={aiMessage ? styles.aiMessageText : styles.subtitle}>
+            {aiMessage || "어르신의 말씀을 듣고 있어요..."}
+          </Text>
+        </View>
         <Text style={styles.title}>{current.main}</Text>
         <Text style={styles.subtitle}>{current.sub}</Text>
         <View style={styles.voiceBox}><Text style={styles.voiceDots}>{current.dots}</Text></View>
@@ -301,24 +313,141 @@ export default function CallScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#1A1A1A" },
-  topBar: { flexDirection: "row", justifyContent: "space-between", padding: 50, paddingTop: 60 },
-  statusLeft: { flexDirection: "row", alignItems: "center" },
-  greenDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#4ADE80", marginRight: 8 },
-  topText: { color: "#FFF", fontSize: 16, fontWeight: "600" },
-  timer: { color: "#FFF", fontSize: 16, opacity: 0.6 },
-  centerArea: { flex: 1, alignItems: "center", justifyContent: "center" },
-  avatarOuter: { width: 160, height: 160, borderRadius: 80, backgroundColor: "rgba(74, 222, 128, 0.1)", alignItems: "center", justifyContent: "center" },
-  avatarInner: { width: 120, height: 120, borderRadius: 60, backgroundColor: "#4ADE80", alignItems: "center", justifyContent: "center" },
-  botEmoji: { fontSize: 50 },
-  title: { color: "#FFF", fontSize: 28, fontWeight: "700", marginTop: 24 },
-  subtitle: { color: "#FFF", fontSize: 18, opacity: 0.7, marginTop: 8 },
-  voiceBox: { marginTop: 40, height: 40, justifyContent: "center" },
-  voiceDots: { color: "#4ADE80", fontSize: 24, letterSpacing: 4 },
-  bottomArea: { paddingBottom: 60, alignItems: "center" },
-  speakerButton: { width: 56, height: 56, borderRadius: 28, backgroundColor: "rgba(255,255,255,0.1)", alignItems: "center", justifyContent: "center", marginBottom: 8 },
-  speakerIcon: { fontSize: 24 },
-  speakerText: { color: "#FFF", opacity: 0.6, marginBottom: 40 },
-  endButton: { width: 72, height: 72, borderRadius: 36, backgroundColor: "#FF4444", alignItems: "center", justifyContent: "center", transform: [{ rotate: "135deg" }] },
-  endIcon: { fontSize: 32, color: "#FFF" },
+  container: { 
+    flex: 1, 
+    backgroundColor: "#1A1A1A" 
+  },
+  topBar: { 
+    flexDirection: "row", 
+    justifyContent: "space-between", 
+    padding: 50, 
+    paddingTop: 60 
+  },
+  statusLeft: { 
+    flexDirection: "row", 
+    alignItems: "center" 
+  },
+  greenDot: { 
+    width: 8, 
+    height: 8, 
+    borderRadius: 4, 
+    backgroundColor: "#4ADE80", 
+    marginRight: 8 
+  },
+  topText: { 
+    color: "#FFF", 
+    fontSize: 16, 
+    fontWeight: "600" 
+  },
+  timer: { 
+    color: "#FFF", 
+    fontSize: 16, 
+    opacity: 0.6 
+  },
+  centerArea: { 
+    flex: 1, 
+    alignItems: "center", 
+    justifyContent: "center", 
+    paddingHorizontal: 25 
+  },
+  avatarOuter: { 
+    width: 140, 
+    height: 140, 
+    borderRadius: 70, 
+    backgroundColor: "rgba(74, 222, 128, 0.1)", 
+    alignItems: "center", 
+    justifyContent: "center" 
+  },
+  avatarInner: { 
+    width: 100, 
+    height: 100, 
+    borderRadius: 50, 
+    backgroundColor: "#4ADE80", 
+    alignItems: "center", 
+    justifyContent: "center" 
+  },
+  botEmoji: { 
+    fontSize: 40 
+  },
+  title: { 
+    color: "#FFF", 
+    fontSize: 24, 
+    fontWeight: "700", 
+    marginTop: 20 
+  },
+
+  // --- 메시지 박스 스타일 (항상 표시됨) ---
+  messageContainer: {
+    marginTop: 30,
+    minHeight: 160,           // 박스 높이 고정 (글자가 나타나도 화면이 안 흔들림)
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)', // 은은한 박스 배경색
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)', // 박스 테두리선
+    overflow: 'hidden'   
+  },
+  aiMessageText: {
+    color: "#4ADE80",        // AI 답변은 강조색(연두색)으로 표시
+    fontSize: 32,            // 어르신용 왕글씨
+    fontWeight: "800",
+    textAlign: "center",
+    lineHeight: 45,
+  },
+  subtitle: { 
+    color: "#FFF", 
+    fontSize: 18, 
+    opacity: 0.5, 
+    textAlign: "center",
+    lineHeight: 26 
+  },
+  
+  voiceBox: { 
+    marginTop: 30, 
+    height: 40, 
+    justifyContent: "center" 
+  },
+  voiceDots: { 
+    color: "#4ADE80", 
+    fontSize: 24, 
+    letterSpacing: 4 
+  },
+  bottomArea: { 
+    paddingBottom: 60, 
+    alignItems: "center" 
+  },
+  speakerButton: { 
+    width: 56, 
+    height: 56, 
+    borderRadius: 28, 
+    backgroundColor: "rgba(255,255,255,0.1)", 
+    alignItems: "center", 
+    justifyContent: "center", 
+    marginBottom: 8 
+  },
+  speakerIcon: { 
+    fontSize: 24 
+  },
+  speakerText: { 
+    color: "#FFF", 
+    opacity: 0.6, 
+    marginBottom: 40 
+  },
+  endButton: { 
+    width: 72, 
+    height: 72, 
+    borderRadius: 36, 
+    backgroundColor: "#FF4444", 
+    alignItems: "center", 
+    justifyContent: "center", 
+    transform: [{ rotate: "135deg" }] 
+  },
+  endIcon: { 
+    fontSize: 32, 
+    color: "#FFF" 
+  },
 });
