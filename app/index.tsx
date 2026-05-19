@@ -68,6 +68,7 @@ export default function StartScreen() {
 }
 
 const styles = StyleSheet.create({
+
   container: {
     flex: 1,
     backgroundColor: "#F8F9FB",
@@ -132,6 +133,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
+    marginLeft: 10, marginRight: 10
   },
   iconBox: {
     width: 60,
