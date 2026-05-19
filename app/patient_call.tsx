@@ -12,7 +12,7 @@ import {
 } from "react-native";
 
 // --- 상수 및 설정 ---
-const API_BASE_URL = "http://192.168.219.50:8000"; 
+const API_BASE_URL = "http://192.168.219.46:8000"; 
 const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5";
 const CALL_TYPE = "voluntary"; 
 

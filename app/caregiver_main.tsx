@@ -1,13 +1,16 @@
 import { router } from "expo-router";
-import { Activity, Bell, Calendar, User, Phone, Plus } from 'lucide-react-native';
+import { Bell, Calendar, User, Phone, Plus } from 'lucide-react-native';
 import React from 'react';
-import { TouchableOpacity, View } from 'react-native';
+import { TouchableOpacity, View, ScrollView } from 'react-native';
 import styled from 'styled-components/native';
 
 // --- 타입 정의 (TypeScript 빨간 줄 방지) ---
 interface StyleProps {
   color?: string;
   backgroundColor?: string;
+  fontSize?: number;
+  isUrgent?: boolean;
+  size?: number; // size 속성 추가로 빨간 줄 해결
 }
 
 const GuardianMain = () => {
@@ -16,15 +19,15 @@ const GuardianMain = () => {
       {/* 상단 헤더 */}
       <Header>
         <GreetingSection>
-          <SubTitle>가족의 마음을 잇는</SubTitle>
-          <Title>케어메이트 <TitleBlue>보호자</TitleBlue></Title>
+          <SubTitle fontSize={16}>가족의 마음을 잇는</SubTitle>
+          <Title fontSize={26}>케어메이트 <TitleBlue>보호자</TitleBlue></Title>
         </GreetingSection>
         <IconGroup>
           <TouchableOpacity activeOpacity={0.7}>
-            <Bell color="#333" size={24} />
+            <Bell color="#333" size={30} />
           </TouchableOpacity>
-          <TouchableOpacity activeOpacity={0.7} style={{ marginLeft: 15 }}>
-            <User color="#333" size={24} />
+          <TouchableOpacity activeOpacity={0.7} style={{ marginLeft: 20 }}>
+            <User color="#333" size={30} />
           </TouchableOpacity>
         </IconGroup>
       </Header>
@@ -34,9 +37,13 @@ const GuardianMain = () => {
         <StatusCard activeOpacity={0.9}>
           <CardHeader>
             <PatientInfo>
-              <Avatar source={{ uri: 'https://via.placeholder.com/100' }} />
+              <Avatar source={require('./media/soonja.jpg')} />
               <View>
-                <PatientName>김순자 어르신</PatientName>
+                <PatientName fontSize={22}>김순자 어르신</PatientName>
+                <StatusTag>
+                  <StatusDot backgroundColor="#2ECC71" />
+                  <StatusTagText color="#2ECC71" fontSize={14}>현재 연결됨</StatusTagText>
+                </StatusTag>
               </View>
             </PatientInfo>
           </CardHeader>
@@ -45,55 +52,47 @@ const GuardianMain = () => {
         {/* 퀵 메뉴 섹션 */}
         <MenuGrid>
           <MenuButton onPress={() => router.push("/caregiver_report")}>
-            <MenuIconBox backgroundColor="#EEF5FF">
-              <Calendar color="#4A90E2" size={28} />
+            <MenuIconBox backgroundColor="#EEF5FF" size={80}>
+              <Calendar color="#4A90E2" size={36} />
             </MenuIconBox>
-            <MenuText>리포트 열람</MenuText>
+            <MenuText fontSize={16}>리포트 열람</MenuText>
           </MenuButton>
-        <MenuButton activeOpacity={0.7}>
-          <MenuIconBox backgroundColor="#FFF0F0">
-            {/* 아이콘을 Phone으로 변경하고, 옆의 파란색/초록색 버튼과 채도를 맞춘 연한 빨간색 적용 */}
-            <Phone color="#FF6B6B" size={28} />
-          </MenuIconBox>
-          <MenuText>전화 걸기</MenuText>
-        </MenuButton>
+          <MenuButton activeOpacity={0.7}>
+            <MenuIconBox backgroundColor="#FFF0F0" size={80}>
+              <Phone color="#FF6B6B" size={36} />
+            </MenuIconBox>
+            <MenuText fontSize={16}>전화 걸기</MenuText>
+          </MenuButton>
           <MenuButton onPress={() => router.push("/caregiver_scheduling")}>
-            {/* 배경색 명도/채도를 옆의 버튼들(#EEF5FF, #FFF0F0)과 맞춘 연한 초록색 계열로 변경 */}
-            <MenuIconBox backgroundColor="#E8F5E9">
-            {/* 아이콘을 '활동' 대신 '스케줄' 의미가 강한 시계(Clock) 또는 달력으로 변경 */}
-            <Calendar color="#2ECC71" size={28} />
-          </MenuIconBox>
-          <MenuText>전화 스케줄링</MenuText>
+            <MenuIconBox backgroundColor="#E8F5E9" size={80}>
+              <Calendar color="#2ECC71" size={36} />
+            </MenuIconBox>
+            <MenuText fontSize={16}>전화 스케줄링</MenuText>
           </MenuButton>
         </MenuGrid>
 
         {/* 실시간 알림 피드 */}
         <SectionHeader>
-          <SectionTitle>최근 알림</SectionTitle>
-          <TouchableOpacity><MoreText>전체보기</MoreText></TouchableOpacity>
+          <SectionTitle fontSize={22}>최근 알림</SectionTitle>
+          <TouchableOpacity><MoreText fontSize={16}>전체보기</MoreText></TouchableOpacity>
         </SectionHeader>
 
-        <NotificationItem>
-          <NotiPoint />
+        {/* 긴급 알림 */}
+        <NotificationItem isUrgent={true} backgroundColor="#FFF0F0">
+          <NotiPoint backgroundColor="#FF6B6B" />
           <NotiContent>
-            <NotiText>[오전 10:30] 전화 3회 미수신 - 즉시 확인 필요</NotiText>
-            <NotiTime>방금 전</NotiTime>
+            <NotiText fontSize={18} isUrgent={true} color="#1A1C1E">[오전 10:30] 전화 3회 미수신 - 즉시 확인 필요</NotiText>
+            <NotiTime fontSize={14} color="#1A1C1E">방금 전</NotiTime>
           </NotiContent>
         </NotificationItem>
 
-        <NotificationItem>
-          <NotiContent>
-            <NotiText>[오전 09:15] 어르신 산책 활동을 시작했습니다.</NotiText>
-            <NotiTime>1시간 전</NotiTime>
-          </NotiContent>
-        </NotificationItem>
 
-        {/* 기존의 복잡한 추가 카드를 지우고 이 버튼으로 교체 */}
+        {/* 환자 추가 버튼 */}
         <AddPatientButton activeOpacity={0.6}>
           <PlusIconWrapper>
-            <Plus color="#9CA3AF" size={18} />
+            <Plus color="#9CA3AF" size={24} />
           </PlusIconWrapper>
-        <AddPatientText>내 환자 추가하기</AddPatientText>
+          <AddPatientText fontSize={18}>내 환자 추가하기</AddPatientText>
         </AddPatientButton>
       </Content>
     </Container>
@@ -113,7 +112,7 @@ const Header = styled.View`
   flex-direction: row;
   justify-content: space-between;
   align-items: flex-end;
-  padding: 20px;
+  padding: 25px 20px;
   background-color: #FFF;
   border-bottom-width: 1px;
   border-bottom-color: #F0F0F0;
@@ -121,14 +120,14 @@ const Header = styled.View`
 
 const GreetingSection = styled.View``;
 
-const SubTitle = styled.Text`
-  font-size: 14px;
+const SubTitle = styled.Text<StyleProps>`
+  font-size: ${props => props.fontSize || 14}px;
   color: #888;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 `;
 
-const Title = styled.Text`
-  font-size: 22px;
+const Title = styled.Text<StyleProps>`
+  font-size: ${props => props.fontSize || 22}px;
   font-weight: 700;
   color: #333;
 `;
@@ -139,22 +138,23 @@ const TitleBlue = styled.Text`
 
 const IconGroup = styled.View`
   flex-direction: row;
+  align-items: center;
 `;
 
-const Content = styled.ScrollView`
-  padding: 20px;
+const Content = styled(ScrollView)`
+  padding: 25px 20px;
 `;
 
 const StatusCard = styled.TouchableOpacity`
   background-color: #FFF;
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 25px;
+  border-radius: 20px;
+  padding: 25px;
+  margin-bottom: 30px;
   shadow-color: #000;
-  shadow-offset: 0px 4px;
-  shadow-opacity: 0.05;
-  shadow-radius: 10px;
-  elevation: 3;
+  shadow-offset: 0px 5px;
+  shadow-opacity: 0.08;
+  shadow-radius: 12px;
+  elevation: 4;
 `;
 
 const CardHeader = styled.View`
@@ -169,99 +169,63 @@ const PatientInfo = styled.View`
 `;
 
 const Avatar = styled.Image`
-  width: 50px;
-  height: 50px;
-  border-radius: 25px;
-  margin-right: 15px;
+  width: 70px;
+  height: 70px;
+  border-radius: 35px;
+  margin-right: 20px;
   background-color: #EEE;
 `;
 
-const PatientName = styled.Text`
-  font-size: 18px;
+const PatientName = styled.Text<StyleProps>`
+  font-size: ${props => props.fontSize || 18}px;
   font-weight: 600;
   color: #333;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 `;
 
 const StatusTag = styled.View`
   flex-direction: row;
   align-items: center;
-  background-color: #F0FFF4;
-  padding: 4px 8px;
+`;
+
+const StatusTagText = styled.Text<StyleProps>`
+  font-size: ${props => props.fontSize || 11}px;
+  color: ${props => props.color || '#2ECC71'};
+  font-weight: 500;
+`;
+
+const StatusDot = styled.View<StyleProps>`
+  width: 8px;
+  height: 8px;
   border-radius: 4px;
-`;
-
-const StatusTagText = styled.Text`
-  font-size: 11px;
-  color: #2ECC71;
-  font-weight: 600;
-`;
-
-const StatusDot = styled.View`
-  width: 6px;
-  height: 6px;
-  border-radius: 3px;
-  background-color: #2ECC71;
-  margin-right: 6px;
-`;
-
-const Divider = styled.View`
-  height: 1px;
-  background-color: #F5F5F5;
-  margin: 15px 0;
-`;
-
-const CardBody = styled.View``;
-
-const InfoRow = styled.View`
-  flex-direction: row;
-  justify-content: space-between;
-`;
-
-const InfoItem = styled.View`
-  flex: 1;
-`;
-
-const InfoLabel = styled.View`
-  flex-direction: row;
-  align-items: center;
-  margin-bottom: 6px;
-`;
-
-const InfoLabelText = styled.Text`
-  font-size: 12px;
-  color: #999;
-`;
-
-const InfoValue = styled.Text<StyleProps>`
-  font-size: 16px;
-  font-weight: 600;
-  color: ${props => props.color || '#333'};
+  background-color: ${props => props.backgroundColor || '#2ECC71'};
+  margin-right: 8px;
 `;
 
 const MenuGrid = styled.View`
   flex-direction: row;
-  justify-content: space-between;
-  margin-bottom: 30px;
+  justify-content: space-around;
+  margin-bottom: 35px;
+  padding: 0 10px;
 `;
 
 const MenuButton = styled.TouchableOpacity`
   align-items: center;
-  width: 28%;
+  width: 30%;
 `;
 
 const MenuIconBox = styled.View<StyleProps>`
-  width: 65px;
-  height: 65px;
-  border-radius: 22px;
+  width: ${props => props.size || 65}px;
+  height: ${props => props.size || 65}px;
+  border-radius: 25px;
   background-color: ${props => props.backgroundColor || '#EEE'};
   justify-content: center;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 `;
 
-const MenuText = styled.Text`
-  font-size: 14px;
+const MenuText = styled.Text<StyleProps>`
+  font-size: ${props => props.fontSize || 14}px;
   font-weight: 500;
   color: #555;
 `;
@@ -270,82 +234,87 @@ const SectionHeader = styled.View`
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
 `;
 
-const SectionTitle = styled.Text`
-  font-size: 18px;
+const SectionTitle = styled.Text<StyleProps>`
+  font-size: ${props => props.fontSize || 18}px;
   font-weight: 700;
   color: #333;
 `;
 
-const MoreText = styled.Text`
-  font-size: 13px;
+const MoreText = styled.Text<StyleProps>`
+  font-size: ${props => props.fontSize || 13}px;
   color: #999;
 `;
 
-const NotificationItem = styled.View`
-  background-color: #FFF;
-  padding: 18px;
-  border-radius: 14px;
-  margin-bottom: 12px;
+const NotificationItem = styled.View<StyleProps>`
+  background-color: ${props => props.backgroundColor || '#FFF'};
+  padding: 15px;
+  border-radius: 16px;
+  margin-bottom: 15px;
   flex-direction: row;
   align-items: center;
+  ${props => props.isUrgent && `
+    border-width: 1px;
+    border-color: #FF6B6B;
+  `}
 `;
 
-const NotiPoint = styled.View`
-  width: 6px;
-  height: 6px;
-  border-radius: 3px;
-  background-color: #FF6B6B;
-  margin-right: 12px;
+const NotiPoint = styled.View<StyleProps>`
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background-color: ${props => props.backgroundColor || '#BBB'};
+  margin-right: 15px;
 `;
 
 const NotiContent = styled.View`
   flex: 1;
 `;
 
-const NotiText = styled.Text`
-  font-size: 14px;
-  color: #444;
-  line-height: 20px;
-  margin-bottom: 4px;
+const NotiText = styled.Text<StyleProps>`
+  font-size: ${props => props.fontSize || 14}px;
+  color: ${props => props.color || '#444'};
+  line-height: 24px;
+  margin-bottom: 6px;
+  ${props => props.isUrgent && `
+    font-weight: 700;
+  `}
 `;
 
-const NotiTime = styled.Text`
-  font-size: 12px;
-  color: #BBB;
+const NotiTime = styled.Text<StyleProps>`
+  font-size: ${props => props.fontSize || 12}px;
+  color: ${props => props.color || '#BBB'};
 `;
-// --- 스타일 정의 추가/수정 ---
 
 const AddPatientButton = styled.TouchableOpacity`
   flex-direction: row;
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 60px;
+  height: 70px;
   border-width: 2px;
-  border-color: #D1D5DB; /* 연한 그레이 */
-  border-style: dashed; /* 점선 테두리 */
-  border-radius: 16px;
+  border-color: #D1D5DB;
+  border-style: dashed;
+  border-radius: 20px;
   background-color: transparent;
-  margin-top: 10px;
-  margin-bottom: 30px;
+  margin-top: 15px;
+  margin-bottom: 40px;
 `;
 
-const AddPatientText = styled.Text`
-  font-size: 16px;
+const AddPatientText = styled.Text<StyleProps>`
+  font-size: ${props => props.fontSize || 16}px;
   font-weight: 600;
-  color: #9CA3AF; /* 테두리와 맞춘 그레이 톤 */
-  margin-left: 8px;
+  color: #9CA3AF;
+  margin-left: 10px;
 `;
 
-// 플러스 아이콘을 감싸는 원형 (선택 사항, 깔끔함을 위해 추가)
 const PlusIconWrapper = styled.View`
-  width: 24px;
-  height: 24px;
-  border-radius: 12px;
+  width: 30px;
+  height: 30px;
+  border-radius: 15px;
   background-color: #F3F4F6;
-  justify-content: center;
+  justify-content: center;1A1C1E
   align-items: center;
 `;
