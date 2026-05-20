@@ -12,7 +12,7 @@ import {
 } from "react-native";
 
 // --- 상수 및 설정 ---
-const API_BASE_URL = "http://192.168.219.46:8000"; 
+const API_BASE_URL = "http://192.168.45.224:8000"; 
 const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5";
 const CALL_TYPE = "voluntary"; 
 
@@ -20,7 +20,7 @@ type CallStatus = "connecting" | "listening" | "speaking";
 
 const SILENCE_LIMIT_MS = 2000;
 const METERING_INTERVAL_MS = 250;
-const SILENCE_THRESHOLD = -20; // 사용자 마이크 환경에 맞춘 설정
+const SILENCE_THRESHOLD = -30; // 사용자 마이크 환경에 맞춘 설정
 
 const statusText = {
   connecting: { top: "연결 중", main: "AI 케어봇", sub: "연결하고 있어요...", dots: "••••••" },
@@ -135,10 +135,10 @@ export default function CallScreen() {
         const result = await response.json();
         console.log("6. [종료 API 결과]:", result);
       }
-      router.push("/patient_main");
+      router.back();
     } catch (error) {
       console.error("❌ 통화 종료 실패:", error);
-      router.push("/patient_main");
+      router.back();
     }
   }
 

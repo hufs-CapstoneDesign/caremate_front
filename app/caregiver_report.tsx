@@ -12,6 +12,7 @@ import styled from 'styled-components/native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Calendar as RNcalendar } from 'react-native-calendars';
+import { router } from "expo-router";
 
 // --- 타입 정의 ---
 interface ProgressProps {
@@ -65,14 +66,14 @@ export default function CaregiverReport() {
   const [reportDetail, setReportDetail] = useState<ReportDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCalendarVisible, setCalendarVisible] = useState(false);
-  const [selectedDate, setSelectedDate] = useState("2026-05-18"); 
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); 
 
   useEffect(() => {
     const fetchReportDetail = async () => {
       if (!patient_id || !selectedDate) return;
       setIsLoading(true);
       try {
-        const url = `http://192.168.219.46:8000/reports/${patient_id}/${selectedDate}`;
+        const url = `http://192.168.45.224:8000/reports/${patient_id}/${selectedDate}`;
         const response = await fetch(url);
         
         if (response.status === 200) {
@@ -98,7 +99,9 @@ export default function CaregiverReport() {
   return (
     <Container>
       <Header>
-        <TouchableOpacity><ChevronLeft color="#333" size={24} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()}>
+          <ChevronLeft color="#333" size={24} />
+        </TouchableOpacity>
         <HeaderTitle>간병 리포트</HeaderTitle>
         <TouchableOpacity onPress={() => setCalendarVisible(true)}>
           <CalendarIcon color="#333" size={22} />
