@@ -6,7 +6,8 @@ import {
   MessageCircle,
   Pill,
   Smile,
-  Utensils
+  Utensils,
+  MessageSquare // 💡 대화 원본 보기용 채팅 아이콘 추가
 } from 'lucide-react-native';
 import styled from 'styled-components/native';
 import React, { useEffect, useState } from 'react';
@@ -248,7 +249,7 @@ export default function CaregiverReport() {
             </MetricRow>
           </DetailCard>
 
-          {/* 💡 요청하신 환자 진술 신뢰도 안내 문구 블록 추가 */}
+          {/* 환자 진술 신뢰도 안내 문구 블록 */}
           <NoticeBox>
             <AlertCircle size={14} color="#FF6B6B" style={{ marginRight: 6, marginTop: 1 }} />
             <NoticeText>
@@ -257,9 +258,14 @@ export default function CaregiverReport() {
           </NoticeBox>
         </DetailSection>
 
+        {/* 💡 우측에 말풍선 모양의 채팅 아이콘 버튼 배치 */}
         <SectionHeader>
-          <SectionLabel>통화 요약</SectionLabel>
+          <SectionLabel style={{ marginBottom: 0 }}>통화 요약</SectionLabel>
+          <ChatIconButton onPress={() => router.push("/caregiver_chat")}>
+            <MessageSquare size={20} color="#4A90E2" />
+          </ChatIconButton>
         </SectionHeader>
+        
         <Timeline>
           {[
             { 
@@ -405,7 +411,6 @@ const SimpleValueText = styled.Text`
   text-align: right;
 `;
 
-// 💡 추가된 신뢰도 공지 안내 상자 컴포넌트
 const NoticeBox = styled.View`
   flex-direction: row;
   align-items: flex-start;
@@ -421,4 +426,11 @@ const NoticeText = styled.Text`
   line-height: 16px;
   flex: 1;
   font-weight: 500;
+`;
+
+// 💡 새롭게 추가된 채팅 아이콘 전용 styled-components
+const ChatIconButton = styled.TouchableOpacity`
+  padding: 6px;
+  justify-content: center;
+  align-items: center;
 `;
