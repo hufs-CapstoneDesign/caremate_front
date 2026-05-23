@@ -81,7 +81,7 @@ const GuardianMain = () => {
         <NotificationItem isUrgent={true} backgroundColor="#FFF0F0">
           <NotiPoint backgroundColor="#FF6B6B" />
           <NotiContent>
-            <NotiText fontSize={18} isUrgent={true} color="#1A1C1E">[오전 10:30] 전화 3회 미수신 - 즉시 확인 필요</NotiText>
+            <NotiText fontSize={16} isUrgent={true} color="#1A1C1E">[오전 10:30] 전화 3회 미수신 - 즉시 확인 필요</NotiText>
             <NotiTime fontSize={14} color="#1A1C1E">방금 전</NotiTime>
           </NotiContent>
         </NotificationItem>
