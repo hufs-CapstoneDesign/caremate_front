@@ -73,7 +73,7 @@ export default function CaregiverReport() {
       if (!patient_id || !selectedDate) return;
       setIsLoading(true);
       try {
-        const url = `http://192.168.45.224:8000/reports/${patient_id}/${selectedDate}`;
+        const url = `http://172.30.1.16:8000/reports/${patient_id}/${selectedDate}`;
         const response = await fetch(url);
         
         if (response.status === 200) {
