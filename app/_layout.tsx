@@ -18,15 +18,27 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="patient_main" options={{ headerShown: false }} />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+
+        <Stack.Screen
+          name="patient_incoming_call"
+          options={{
+            presentation: "fullScreenModal",
+            animation: "fade",
+          }}
+        />
+
+        <Stack.Screen name="patient_call" />
+        <Stack.Screen name="patient_main" />
         <Stack.Screen name="explore" />
+
         <Stack.Screen
           name="modal"
           options={{ presentation: "modal", title: "Modal" }}
         />
       </Stack>
+
       <StatusBar style="auto" />
     </ThemeProvider>
   );
