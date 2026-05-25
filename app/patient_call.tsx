@@ -12,7 +12,7 @@ import {
 } from "react-native";
 
 // --- 상수 및 설정 ---
-const API_BASE_URL = "http://172.30.1.16:8000"; 
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5";
 const CALL_TYPE = "voluntary"; 
 

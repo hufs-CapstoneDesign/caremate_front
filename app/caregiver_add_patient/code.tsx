@@ -4,7 +4,7 @@ import React from "react";
 import styled from "styled-components/native";
 
 export default function AddPatientCodeScreen() {
-  const code = "CARE-0829";
+  let code = Math.random().toString(36).substring(2, 5).toUpperCase() + Math.random().toString(36).substring(2, 4).toUpperCase();
 
   return (
     <Container>
@@ -22,7 +22,7 @@ export default function AddPatientCodeScreen() {
 
         <CodeCard>
           <CodeLabel>연결 코드</CodeLabel>
-          <CodeText>C A R E - 0 8 2 9</CodeText>
+          <CodeText>{code}</CodeText>
         </CodeCard>
       </Content>
 
