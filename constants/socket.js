@@ -3,7 +3,7 @@
 // const socket = io(`http://${SERVER_IP}:8000`);
 
 // 수정 후 (순정 WebSocket 방식)
-const SERVER_IP = '172.30.1.16'; // 아까 확인한 노트북 IP
+const SERVER_IP = '192.168.45.248'; // 아까 확인한 노트북 IP
 const socket = new WebSocket(`ws://${SERVER_IP}:8000/ws/calls`); 
 // 주의: 주소 앞에 http가 아니라 'ws'가 붙어야 하고, 
 // 백엔드 websocket.py에 정의된 경로(예: /ws/chat)를 정확히 써야 합니다.

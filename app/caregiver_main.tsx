@@ -88,7 +88,10 @@ const GuardianMain = () => {
 
 
         {/* 환자 추가 버튼 */}
-        <AddPatientButton activeOpacity={0.6}>
+        <AddPatientButton
+          activeOpacity={0.6}
+          onPress={() => router.push("/caregiver_add_patient")}
+        >
           <PlusIconWrapper>
             <Plus color="#9CA3AF" size={24} />
           </PlusIconWrapper>
