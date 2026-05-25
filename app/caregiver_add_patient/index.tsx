@@ -59,7 +59,7 @@ export default function AddPatientBasicInfo() {
         <Input
           placeholder="성함 입력"
           value={name}
-          onChangeText={setName}
+          onChangeText={setName} 
         />
 
         <Label>나이</Label>
