@@ -54,6 +54,20 @@ export default function PatientMain() {
           <Ionicons name="chevron-forward" size={24} color="#0FA67A" />
         </TouchableOpacity>
         
+        <TouchableOpacity
+          style={styles.connectCard}
+          onPress={() => router.push("/patient_connect_code")}
+        >
+          <View style={styles.connectIconCircle}>
+            <Ionicons name="link-outline" size={28} color="#4A90E2" />
+          </View>
+          <View style={styles.cardTextBox}>
+            <Text style={styles.cardTitle}>보호자 연결하기</Text>
+            <Text style={styles.cardDesc}>발급받은 연결 코드를 입력하세요</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color="#4A90E2" />
+        </TouchableOpacity>
+
         {/* 테스트용 버튼: 디자인 시스템에 맞춰 보조 카드로 변경 */}
         <TouchableOpacity
           style={styles.subTestCard}
@@ -153,5 +167,26 @@ const styles = StyleSheet.create({
     color: "#4A5568", 
     fontSize: 14, 
     fontWeight: "700" 
+  },
+  connectCard: {
+    marginTop: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    padding: 24,
+    borderRadius: 28,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+  },
+  connectIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 22,
+    backgroundColor: "#EEF5FF",
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
