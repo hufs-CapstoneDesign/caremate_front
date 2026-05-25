@@ -3,9 +3,29 @@ import { ChevronLeft } from "lucide-react-native";
 import React, { useState } from "react";
 import { TouchableOpacity } from "react-native";
 import styled from "styled-components/native";
+// 🌟 1. Zustand 스토어 훅 임포트
+import { useAddPatientStore } from "@/store/addPatientStore";
 
-const COGNITIVE = ["기억력 장애", "지남력 장애", "언어장애", "실행능력 장애", "판단력 장애"];
-const BEHAVIORAL = [
+// 🌟 2. 스토어의 Symptom 타입과 완벽하게 일치시킵니다. (언어 장애 띄어쓰기 수정)
+type Symptom =
+  | "기억력 장애"
+  | "지남력 장애"
+  | "언어 장애"
+  | "실행능력 장애"
+  | "판단력 장애"
+  | "망상"
+  | "환각"
+  | "오인"
+  | "우울증"
+  | "불안증세"
+  | "초조행동"
+  | "성격변화"
+  | "수면의 변화"
+  | "식욕의 변화"
+  | "";
+
+const COGNITIVE: Symptom[] = ["기억력 장애", "지남력 장애", "언어 장애", "실행능력 장애", "판단력 장애"];
+const BEHAVIORAL: Symptom[] = [
   "망상",
   "환각",
   "오인",
@@ -18,16 +38,23 @@ const BEHAVIORAL = [
 ];
 
 export default function AddPatientCognitiveScreen() {
-  const [selected, setSelected] = useState<string[]>([]);
+  // 🌟 3. 스토어에서 증상 리스트 저장 함수 가져오기
+  const setSymptomsInfo = useAddPatientStore((state) => state.setSymptomsInfo);
 
-  const toggleSymptom = (item: string) => {
+  // 로컬 state 타입을 Symptom[] 배열로 명시
+  const [selected, setSelected] = useState<Symptom[]>([]);
+
+  const toggleSymptom = (item: Symptom) => {
     setSelected((prev) =>
       prev.includes(item) ? prev.filter((v) => v !== item) : [...prev, item]
     );
   };
 
   const handleNext = () => {
-    console.log("선택 증상:", selected);
+    // 🌟 4. 다음 페이지로 가기 전, 선택된 증상 배열을 전역 스토어에 저축!
+    setSymptomsInfo(selected);
+
+    console.log("선택 증상 전역 저장 완료:", selected);
     router.push("/caregiver_add_patient/family");
   };
 
@@ -94,6 +121,7 @@ export default function AddPatientCognitiveScreen() {
       </Content>
 
       <BottomArea>
+        {/* 증상을 선택하지 않아도 넘어갈 수 있게 하거나, 필수 선택으로 만들고 싶다면 disabled 처리를 할 수 있습니다. */}
         <NextButton onPress={handleNext}>
           <NextText>다음으로</NextText>
         </NextButton>
@@ -102,6 +130,9 @@ export default function AddPatientCognitiveScreen() {
   );
 }
 
+// ==========================================
+// 스타일드 컴포넌트는 기존 코드를 완벽히 유지합니다.
+// ==========================================
 const Container = styled.SafeAreaView`
   flex: 1;
   background-color: #f8f9fb;
@@ -171,6 +202,7 @@ const SectionTitleWrapper = styled.View`
   align-items: center;
   margin-bottom: 16px;
   margin-top: 10px;
+ animate;
 `;
 
 const BlueBar = styled.View`

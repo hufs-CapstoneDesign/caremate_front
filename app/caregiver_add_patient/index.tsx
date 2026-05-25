@@ -58,13 +58,15 @@ export default function AddPatientBasicInfo() {
         <Label>이름</Label>
         <Input
           placeholder="성함 입력"
+          placeholderTextColor="#9CA3AF"
           value={name}
           onChangeText={setName} 
         />
 
         <Label>나이</Label>
         <Input
-          placeholder="만 나이 입력 (예: 75)"
+          placeholder="만 나이 입력"
+          placeholderTextColor="#9CA3AF"
           keyboardType="numeric"
           value={age}
           onChangeText={setAge}

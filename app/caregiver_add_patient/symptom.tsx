@@ -3,6 +3,11 @@ import { ChevronLeft } from "lucide-react-native";
 import React, { useState } from "react";
 import { TouchableOpacity } from "react-native";
 import styled from "styled-components/native";
+// 🌟 1. Zustand 스토어 훅 임포트
+import { useAddPatientStore } from "@/store/addPatientStore";
+
+// 🌟 2. 스토어에 정의된 타입과 안전하게 싱크 맞추기
+type SeverityStage = "경증" | "중등도" | "중증" | "";
 
 const LEVELS = [
   {
@@ -20,14 +25,22 @@ const LEVELS = [
     title: "중증",
     description: "지속적인 돌봄과 관찰이 꼭 필요한 상태",
   },
-];
+] as const;
 
 export default function AddPatientSymptomScreen() {
-  const [level, setLevel] = useState("");
+  // 🌟 3. 스토어에서 중증도 저장 함수 가져오기
+  const setSeverityInfo = useAddPatientStore((state) => state.setSeverityInfo);
+  
+  // 타입 안정성 보강
+  const [level, setLevel] = useState<SeverityStage>("");
 
   const handleNext = () => {
-    console.log("선택한 증상 정도:", level);
+    if (!level) return;
 
+    // 🌟 4. 다음 페이지로 가기 전 전역 스토어에 선택된 중증도 저장!
+    setSeverityInfo(level);
+
+    // 🌟 5. 다음 라우트로 이동 (질문하셨던 흐름대로 이동)
     router.push("/caregiver_add_patient/cognitive");
   };
 
@@ -89,6 +102,9 @@ export default function AddPatientSymptomScreen() {
   );
 }
 
+// ==========================================
+// 스타일드 컴포넌트 구조는 기존 코드를 유지합니다.
+// ==========================================
 const Container = styled.SafeAreaView`
   flex: 1;
   background-color: #f8f9fb;

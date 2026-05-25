@@ -30,7 +30,7 @@ interface FamilyMember {
   relation: Relation;
 }
 
-interface OtherPeople {
+interface Contact {
   name: string;
   role: string;
   nickname: string;
@@ -47,16 +47,18 @@ interface AddPatientState {
   severity: SeverityStage;
   symptoms: Symptom[];
   familyMembers: FamilyMember[];
-  otherPeople: OtherPeople[];
+  contacts: Contact[];
   medication: Medication;
+  code: string; // 🌟 추가: 발급된 연결 코드 상태
 
   // --- 수정 함수 (Actions) ---
   setBasicInfo: (data: { name: string; age: string; relation: Relation }) => void;
   setSeverityInfo: (severity: SeverityStage) => void;
   setSymptomsInfo: (symptoms: Symptom[]) => void;
   setFamilyMembers: (members: FamilyMember[]) => void;
-  setOtherPeople: (people: OtherPeople[]) => void;
+  setContacts: (contacts: Contact[]) => void;
   setMedication: (medication: Medication) => void;
+  setCode: (code: string) => void; // 🌟 추가: 코드 저장을 위한 함수
 
   // --- 초기화 함수 ---
   reset: () => void;
@@ -73,11 +75,11 @@ export const useAddPatientStore = create<AddPatientState>((set) => ({
   severity: "",
   symptoms: [],
   familyMembers: [],
-  otherPeople: [],
+  contacts: [],
   medication: "",
+  code: "", // 🌟 초기값 추가
 
   // --- 함수 구현 (Action Implementation) ---
-  // 1단계: 기초 정보 저장
   setBasicInfo: (data) =>
     set({
       name: data.name,
@@ -85,37 +87,38 @@ export const useAddPatientStore = create<AddPatientState>((set) => ({
       relation: data.relation,
     }),
 
-  // 2단계: 중증도 저장
   setSeverityInfo: (severity) =>
     set({
       severity: severity,
     }),
 
-  // 3단계: 증상 복수 선택 저장
   setSymptomsInfo: (symptoms) =>
     set({
       symptoms: symptoms,
     }),
 
-  // 4단계: 가족 구성원 리스트 저장
   setFamilyMembers: (members) =>
     set({
       familyMembers: members,
     }),
 
-  // 5단계: 자주 만나는 주변인 리스트 저장
-  setOtherPeople: (people) =>
+  setContacts: (contacts) =>
     set({
-      otherPeople: people,
+      contacts: contacts,
     }),
 
-  // 6단계: 복약 정보 저장
   setMedication: (medication) =>
     set({
       medication: medication,
     }),
 
-  // 전체 데이터 리셋 (등록 취소 혹은 최종 등록 완료 후 호출)
+  // 🌟 추가: setCode 함수 구현
+  setCode: (code) =>
+    set({
+      code: code,
+    }),
+
+  // 전체 데이터 리셋
   reset: () =>
     set({
       name: "",
@@ -124,7 +127,8 @@ export const useAddPatientStore = create<AddPatientState>((set) => ({
       severity: "",
       symptoms: [],
       familyMembers: [],
-      otherPeople: [],
+      contacts: [],
       medication: "",
+      code: "", // 🌟 리셋 시 코드도 함께 비워지도록 수정
     }),
 }));

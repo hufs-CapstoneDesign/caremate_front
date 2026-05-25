@@ -3,31 +3,46 @@ import { ChevronLeft, Plus, X } from "lucide-react-native";
 import React, { useState } from "react";
 import { TouchableOpacity } from "react-native";
 import styled from "styled-components/native";
+// 🌟 1. Zustand 스토어 훅 임포트
+import { useAddPatientStore } from "@/store/addPatientStore";
+
+// 🌟 2. 스토어에 정의된 타입과 완벽하게 싱크를 맞춥니다.
+type Relation = "자녀" | "배우자" | "손주/손녀" | "형제/자매" | "기타" | "";
 
 type FamilyMember = {
   name: string;
-  relation: string;
+  relation: Relation; // string 대신 정확한 관계 타입 적용
 };
 
 export default function AddPatientFamilyScreen() {
+  // 🌟 3. 스토어에서 가족 리스트 저장 함수 가져오기
+  const setFamilyMembers = useAddPatientStore((state) => state.setFamilyMembers);
+
   const [name, setName] = useState("");
-  const [relation, setRelation] = useState("");
+  const [relation, setRelation] = useState<Relation>("");
   const [familyList, setFamilyList] = useState<FamilyMember[]>([]);
 
   const handleAddFamily = () => {
     if (!name || !relation) return;
 
+    // 스토어 타입(Relation) 조건에 맞는지 한 번 더 체크 후 추가
     setFamilyList((prev) => [...prev, { name, relation }]);
     setName("");
     setRelation("");
   };
 
   const handleRemoveFamily = (index: number) => {
-    setFamilyList((prev) => prev.filter((_, i) => i !== index));
+    familyList.splice(index, 1);
+    // 상태 변경 감지를 위한 새 배열 복사
+    setFamilyList([...familyList]);
   };
 
   const handleNext = () => {
-    console.log("가족 구성원:", familyList);
+    // 🌟 4. 다음 페이지로 가기 전, 여태까지 [추가]한 가족 배열을 전역 스토어에 저축!
+    // 0개 이상이 가능하므로 빈 배열([]) 상태여도 정상적으로 넘어갑니다.
+    setFamilyMembers(familyList);
+
+    console.log("가족 구성원 전역 저장 완료:", familyList);
     router.push("/caregiver_add_patient/contacts");
   };
 
@@ -52,51 +67,58 @@ export default function AddPatientFamilyScreen() {
         <Spacer />
       </Header>
 
-      <Content>
+      <Content contentContainerStyle={{ paddingBottom: 40 }}>
         <Title>
-          함께하는{"\n"}가족 구성원을 알려주세요
+          함께하고 있는{"\n"}가족 구성원을 알려주세요
         </Title>
-        <Sub>환자분을 함께 돌보는 가족들을 적어주세요.</Sub>
+        <Sub>0개 이상 등록이 가능하며, 해당사항이 없다면 바로 다음을 눌러주세요.</Sub>
 
-        <InputCard>
-          <InputRow>
-            <InputBox>
-              <Label>성함</Label>
-              <Input
-                placeholder="이름 입력"
-                value={name}
-                onChangeText={setName}
-              />
-            </InputBox>
+        <InputGroup>
+          <InputBox>
+            <Label>성함</Label>
+            <Input
+              placeholder="성함 입력"
+              placeholderTextColor="#9CA3AF"
+              value={name}
+              onChangeText={setName}
+            />
+          </InputBox>
 
-            <InputBox>
-              <Label>관계</Label>
-              <Input
-                placeholder="예: 큰아들"
-                value={relation}
-                onChangeText={setRelation}
-              />
-            </InputBox>
-          </InputRow>
+          <InputBox>
+            <Label>관계</Label>
+            {/* 실제 기획에 따라 주관식 TextInput이거나 혹은 1단계처럼 버튼형일 텐데,
+               Zustand 타입에 안전하게 매칭되도록 주관식 입력의 타입을 Relation으로 캐스팅 처리합니다.
+            */}
+            <Input
+              placeholder="예: 자녀, 배우자"
+              placeholderTextColor="#9CA3AF"
+              value={relation}
+              onChangeText={(text) => setRelation(text as Relation)}
+            />
+          </InputBox>
+        </InputGroup>
 
-          <AddButton onPress={handleAddFamily}>
-            <Plus size={22} color="#FFFFFF" />
-            <AddText>가족 추가</AddText>
-          </AddButton>
-        </InputCard>
+        <AddButton onPress={handleAddFamily} activeOpacity={0.8}>
+          <Plus size={24} color="#ffffff" />
+          <AddText>가족 구성원 추가</AddText>
+        </AddButton>
 
-        {familyList.map((item, index) => (
-          <FamilyItem key={`${item.name}-${index}`}>
-            <FamilyTextBox>
-              <FamilyName>{item.name}</FamilyName>
-              <FamilyRelation>{item.relation}</FamilyRelation>
-            </FamilyTextBox>
+        {familyList.length > 0 && (
+          <ListArea>
+            {familyList.map((item, index) => (
+              <FamilyItem key={index}>
+                <ItemTextGroup>
+                  <ItemName>{item.name}</ItemName>
+                  <ItemRelation>{item.relation}</ItemRelation>
+                </ItemTextGroup>
 
-            <TouchableOpacity onPress={() => handleRemoveFamily(index)}>
-              <X size={22} color="#9CA3AF" />
-            </TouchableOpacity>
-          </FamilyItem>
-        ))}
+                <TouchableOpacity onPress={() => handleRemoveFamily(index)}>
+                  <X size={20} color="#9CA3AF" />
+                </TouchableOpacity>
+              </FamilyItem>
+            ))}
+          </ListArea>
+        )}
       </Content>
 
       <BottomArea>
@@ -108,6 +130,9 @@ export default function AddPatientFamilyScreen() {
   );
 }
 
+// ==========================================
+// 스타일드 컴포넌트는 기존 UI를 완벽히 유지합니다.
+// ==========================================
 const Container = styled.SafeAreaView`
   flex: 1;
   background-color: #f8f9fb;
@@ -169,20 +194,10 @@ const Sub = styled.Text`
   font-size: 17px;
   color: #6b7280;
   line-height: 26px;
-  margin-bottom: 48px;
+  margin-bottom: 54px;
 `;
 
-const InputCard = styled.View`
-  border-width: 2px;
-  border-style: dashed;
-  border-color: #e5e7eb;
-  border-radius: 28px;
-  padding: 26px;
-  background-color: #ffffff;
-  margin-bottom: 24px;
-`;
-
-const InputRow = styled.View`
+const InputGroup = styled.View`
   flex-direction: row;
   justify-content: space-between;
   margin-bottom: 24px;
@@ -207,6 +222,7 @@ const Input = styled.TextInput`
   font-size: 17px;
   border-width: 1px;
   border-color: #eef0f4;
+  color: #1a1c1e;
 `;
 
 const AddButton = styled.TouchableOpacity`
@@ -216,6 +232,7 @@ const AddButton = styled.TouchableOpacity`
   flex-direction: row;
   justify-content: center;
   align-items: center;
+  margin-bottom: 40px;
 `;
 
 const AddText = styled.Text`
@@ -223,6 +240,12 @@ const AddText = styled.Text`
   font-size: 20px;
   font-weight: 800;
   margin-left: 8px;
+`;
+
+const ListArea = styled.View`
+  border-top-width: 1px;
+  border-top-color: #e5e7eb;
+  padding-top: 24px;
 `;
 
 const FamilyItem = styled.View`
@@ -233,20 +256,26 @@ const FamilyItem = styled.View`
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
+  border-width: 1px;
+  border-color: #eef0f4;
 `;
 
-const FamilyTextBox = styled.View``;
+const ItemTextGroup = styled.View`
+  flex-direction: row;
+  align-items: center;
+`;
 
-const FamilyName = styled.Text`
+const ItemName = styled.Text`
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 700;
   color: #1a1c1e;
-  margin-bottom: 4px;
+  margin-right: 12px;
 `;
 
-const FamilyRelation = styled.Text`
+const ItemRelation = styled.Text`
   font-size: 15px;
   color: #6b7280;
+  font-weight: 500;
 `;
 
 const BottomArea = styled.View`

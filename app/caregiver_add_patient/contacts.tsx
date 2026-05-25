@@ -3,28 +3,34 @@ import { ChevronLeft, Plus, X } from "lucide-react-native";
 import React, { useState } from "react";
 import { TouchableOpacity } from "react-native";
 import styled from "styled-components/native";
+// 🌟 1. Zustand 스토어 훅 임포트
+import { useAddPatientStore } from "@/store/addPatientStore";
 
+// 🌟 2. 스토어의 Contact 인터페이스 사양과 일치시킵니다.
 type Contact = {
   name: string;
   role: string;
-  nickname?: string;
+  nickname: string; // 스토어 사양(필수 string)에 맞춰 optional(?) 제거
 };
 
 export default function AddPatientContactsScreen() {
+  // 🌟 3. 스토어에서 주변인 리스트 저장 함수 가져오기
+  const setContacts = useAddPatientStore((state) => state.setContacts);
+
   const [name, setName] = useState("");
   const [role, setRole] = useState("");
   const [nickname, setNickname] = useState("");
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contactsList, setContactsList] = useState<Contact[]>([]);
 
   const handleAddContact = () => {
     if (!name || !role) return;
 
-    setContacts((prev) => [
+    setContactsList((prev) => [
       ...prev,
       {
         name,
         role,
-        nickname,
+        nickname, // 빈 값이어도 빈 문자열("")로 스토어 타입 규격을 충족합니다.
       },
     ]);
 
@@ -34,11 +40,15 @@ export default function AddPatientContactsScreen() {
   };
 
   const handleRemoveContact = (index: number) => {
-    setContacts((prev) => prev.filter((_, i) => i !== index));
+    setContactsList((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleNext = () => {
-    console.log("주변인:", contacts);
+    // 🌟 4. 다음 페이지로 가기 전, 여태까지 누적한 주변인 배열을 전역 스토어에 저장!
+    //가족과 마찬가지로 0개 이상이 가능하므로 빈 배열 상태여도 부드럽게 넘어갑니다.
+    setContacts(contactsList);
+
+    console.log("주변인 정보 전역 저장 완료:", contactsList);
     router.push("/caregiver_add_patient/medication");
   };
 
@@ -75,6 +85,7 @@ export default function AddPatientContactsScreen() {
               <Label>성함</Label>
               <Input
                 placeholder="이름 입력"
+                placeholderTextColor="#9CA3AF"
                 value={name}
                 onChangeText={setName}
               />
@@ -84,6 +95,7 @@ export default function AddPatientContactsScreen() {
               <Label>역할</Label>
               <Input
                 placeholder="예: 친구, 간병인"
+                placeholderTextColor="#9CA3AF"
                 value={role}
                 onChangeText={setRole}
               />
@@ -94,6 +106,7 @@ export default function AddPatientContactsScreen() {
             <Label>별명 (선택)</Label>
             <Input
               placeholder="예: 예삐 할머니"
+              placeholderTextColor="#9CA3AF"
               value={nickname}
               onChangeText={setNickname}
             />
@@ -105,7 +118,7 @@ export default function AddPatientContactsScreen() {
           </AddButton>
         </InputCard>
 
-        {contacts.map((item, index) => (
+        {contactsList.map((item, index) => (
           <ContactItem key={`${item.name}-${index}`}>
             <ContactTextBox>
               <ContactName>{item.name}</ContactName>
@@ -131,6 +144,9 @@ export default function AddPatientContactsScreen() {
   );
 }
 
+// ==========================================
+// 스타일드 컴포넌트는 기존 코드를 완벽히 유지합니다.
+// ==========================================
 const Container = styled.SafeAreaView`
   flex: 1;
   background-color: #f8f9fb;
@@ -235,6 +251,7 @@ const Input = styled.TextInput`
   font-size: 17px;
   border-width: 1px;
   border-color: #eef0f4;
+  color: #1a1c1e;
 `;
 
 const AddButton = styled.TouchableOpacity`
@@ -261,6 +278,8 @@ const ContactItem = styled.View`
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
+  border-width: 1px;
+  border-color: #eef0f4;
 `;
 
 const ContactTextBox = styled.View``;
