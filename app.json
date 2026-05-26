@@ -2,6 +2,7 @@
   "expo": {
     "name": "caremate",
     "slug": "caremate",
+    "owner": "daeunkimkim",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -48,7 +49,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "98bffda6-a267-4991-90b1-c5c02da9b923"
+        "projectId": "747913eb-5210-4e52-a087-8af6f3128a08"
       }
     }
   }
