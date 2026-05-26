@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View, SafeAreaView, StatusBar, Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
+import axios from "axios";
 
 export default function PatientMain() {
   const [now, setNow] = useState(new Date());
@@ -55,12 +56,9 @@ export default function PatientMain() {
       console.log("획득한 환자 푸시 토큰:", token);
 
       // 5. ⭐️ 백엔드 서버로 토큰 전송하는 로직 구현 자리 ⭐️
-      // 예시: 
-      // await axios.post('https://your-server-api.com/api/users/push-token', {
-      //   token: token,
-      //   role: 'patient',
-      //   userId: '환자고유ID'
-      // });
+      await axios.post(`http://${process.env.EXPO_PUBLIC_API_URL}/auth/fcm-token`, {
+        token: token,
+         });
 
       // 안드로이드일 경우 알림 채널 세팅 (중요도 높임)
       if (Platform.OS === "android") {
