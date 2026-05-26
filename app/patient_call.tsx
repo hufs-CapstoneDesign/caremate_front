@@ -1,7 +1,7 @@
 import { encode as base64Encode } from "base-64";
 import { Audio } from "expo-av";
 import * as FileSystem from "expo-file-system/legacy";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router"; // 1. useLocalSearchParams 임포트 추가
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -14,7 +14,8 @@ import {
 // --- 상수 및 설정 ---
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5";
-const CALL_TYPE = "voluntary"; 
+
+// 기존 상수로 고정되었던 CALL_TYPE 제거
 
 type CallStatus = "connecting" | "listening" | "speaking";
 
@@ -29,6 +30,10 @@ const statusText = {
 };
 
 export default function CallScreen() {
+  // 2. 라우터 파라미터로부터 call_type을 받아옵니다. (기본값은 혹시 모를 상황을 대비해 'voluntary')
+  const params = useLocalSearchParams();
+  const currentCallType = params.call_type || "voluntary";
+
   const [status, setStatus] = useState<CallStatus>("connecting");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [aiMessage, setAiMessage] = useState<string>("");
@@ -60,7 +65,7 @@ export default function CallScreen() {
   async function startCall() {
     try {
       setStatus("connecting");
-      console.log("1. [API 요청] 통화 시작:", `${API_BASE_URL}/calls`);
+      console.log(`1. [API 요청] 통화 시작 (${currentCallType}):`, `${API_BASE_URL}/calls`);
     
       const permission = await Audio.requestPermissionsAsync();
       if (permission.status !== "granted") {
@@ -68,10 +73,14 @@ export default function CallScreen() {
         return;
       }
 
+      // 3. body에 고정값이 아닌 라우터 파라미터로 받은 currentCallType을 동적으로 바인딩합니다.
       const response = await fetch(`${API_BASE_URL}/calls`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patient_id: PATIENT_ID, call_type: CALL_TYPE }),
+        body: JSON.stringify({ 
+          patient_id: PATIENT_ID, 
+          call_type: currentCallType  // 👈 동적 파라미터 적용
+        }),
       });
 
       console.log("2. [API 응답 상태]:", response.status);
@@ -100,17 +109,14 @@ export default function CallScreen() {
     };
 
     ws.onmessage = async (event) => {
-      // 1. 텍스트 데이터 수신 시 처리
       if (typeof event.data === "string") {
         console.log("📥 [텍스트 수신]:", event.data);
         if (event.data === "END") {
           console.log("🏁 대화 종료 신호 수신");
           return;
         }
-        // AI 답변 텍스트를 상태에 저장 (화면에 표시됨)
         setAiMessage(event.data);
       } 
-      // 2. 바이너리(음성) 데이터 수신 시 처리
       else if (event.data instanceof ArrayBuffer) {
         console.log("📥 [음성 바이트 수신] 크기:", event.data.byteLength);
         await playBinaryAudio(event.data);
@@ -178,7 +184,6 @@ export default function CallScreen() {
         if (!status.isRecording) return;
         const metering = status.metering;
 
-        // 마이크 수치 모니터링 로그
         console.log("🎤 현재 마이크 수치:", metering, "| 기준점:", SILENCE_THRESHOLD);
 
         if (typeof metering === "number") {
@@ -218,23 +223,17 @@ export default function CallScreen() {
         return;
       }
 
-      // 1. 파일을 Base64 문자열로 읽어옵니다. (legacy 경로 사용)
       const base64Audio = await FileSystem.readAsStringAsync(uri, {
         encoding: "base64" as any, 
       });
 
-      // 2. [핵심] Base64 문자열을 순수 바이트(Uint8Array)로 변환합니다.
-      // atob는 base64를 디코딩하고, Uint8Array.from은 이를 바이트 배열로 만듭니다.
       const binaryAudio = Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0));
-
-      // 3. JSON으로 감싸지 않고, 순수 바이트 데이터만 전송합니다.
       ws.send(binaryAudio); 
-      
       console.log("✅ 순수 m4a 바이트 전송 완료");
     } catch (e) {
       console.error("❌ 서버 전송 에러:", e);
       isProcessingRef.current = false;
-      startRecording(); // 에러 발생 시 다시 녹음 모드로 복구
+      startRecording();
     }
   }
 
@@ -248,7 +247,6 @@ export default function CallScreen() {
       for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
       const base64Audio = base64Encode(binary);
 
-      // (FileSystem as any)를 사용하여 속성 인식 문제 해결
       const fileUri = `${(FileSystem as any).cacheDirectory}ai-res-${Date.now()}.mp3`;
 
       await (FileSystem as any).writeAsStringAsync(fileUri, base64Audio, {
@@ -280,7 +278,6 @@ export default function CallScreen() {
     isProcessingRef.current = true;
   }
 
-  // --- UI 렌더링 (동일) ---
   const current = statusText[status];
   return (
     <View style={styles.container}>
@@ -313,141 +310,39 @@ export default function CallScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: "#1A1A1A" 
-  },
-  topBar: { 
-    flexDirection: "row", 
-    justifyContent: "space-between", 
-    padding: 50, 
-    paddingTop: 60 
-  },
-  statusLeft: { 
-    flexDirection: "row", 
-    alignItems: "center" 
-  },
-  greenDot: { 
-    width: 8, 
-    height: 8, 
-    borderRadius: 4, 
-    backgroundColor: "#4ADE80", 
-    marginRight: 8 
-  },
-  topText: { 
-    color: "#FFF", 
-    fontSize: 16, 
-    fontWeight: "600" 
-  },
-  timer: { 
-    color: "#FFF", 
-    fontSize: 16, 
-    opacity: 0.6 
-  },
-  centerArea: { 
-    flex: 1, 
-    alignItems: "center", 
-    justifyContent: "center", 
-    paddingHorizontal: 25 
-  },
-  avatarOuter: { 
-    width: 140, 
-    height: 140, 
-    borderRadius: 70, 
-    backgroundColor: "rgba(74, 222, 128, 0.1)", 
-    alignItems: "center", 
-    justifyContent: "center" 
-  },
-  avatarInner: { 
-    width: 100, 
-    height: 100, 
-    borderRadius: 50, 
-    backgroundColor: "#4ADE80", 
-    alignItems: "center", 
-    justifyContent: "center" 
-  },
-  botEmoji: { 
-    fontSize: 40 
-  },
-  title: { 
-    color: "#FFF", 
-    fontSize: 24, 
-    fontWeight: "700", 
-    marginTop: 20 
-  },
-
-  // --- 메시지 박스 스타일 (항상 표시됨) ---
+  container: { flex: 1, backgroundColor: "#1A1A1A" },
+  topBar: { flexDirection: "row", justifyContent: "space-between", padding: 50, paddingTop: 60 },
+  statusLeft: { flexDirection: "row", alignItems: "center" },
+  greenDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#4ADE80", marginRight: 8 },
+  topText: { color: "#FFF", fontSize: 16, fontWeight: "600" },
+  timer: { color: "#FFF", fontSize: 16, opacity: 0.6 },
+  centerArea: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 25 },
+  avatarOuter: { width: 140, height: 140, borderRadius: 70, backgroundColor: "rgba(74, 222, 128, 0.1)", alignItems: "center", justifyContent: "center" },
+  avatarInner: { width: 100, height: 100, borderRadius: 50, backgroundColor: "#4ADE80", alignItems: "center", justifyContent: "center" },
+  botEmoji: { fontSize: 40 },
+  title: { color: "#FFF", fontSize: 24, fontWeight: "700", marginTop: 20 },
   messageContainer: {
     marginTop: 30,
-    minHeight: 160,           // 박스 높이 고정 (글자가 나타나도 화면이 안 흔들림)
+    minHeight: 160,
     width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)', // 은은한 박스 배경색
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 24,
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)', // 박스 테두리선
+    borderColor: 'rgba(255, 255, 255, 0.3)',
     overflow: 'hidden'   
   },
-  aiMessageText: {
-    color: "#4ADE80",        // AI 답변은 강조색(연두색)으로 표시
-    fontSize: 32,            // 어르신용 왕글씨
-    fontWeight: "800",
-    textAlign: "center",
-    lineHeight: 45,
-  },
-  subtitle: { 
-    color: "#FFF", 
-    fontSize: 18, 
-    opacity: 0.5, 
-    textAlign: "center",
-    lineHeight: 26 
-  },
-  
-  voiceBox: { 
-    marginTop: 30, 
-    height: 40, 
-    justifyContent: "center" 
-  },
-  voiceDots: { 
-    color: "#4ADE80", 
-    fontSize: 24, 
-    letterSpacing: 4 
-  },
-  bottomArea: { 
-    paddingBottom: 60, 
-    alignItems: "center" 
-  },
-  speakerButton: { 
-    width: 56, 
-    height: 56, 
-    borderRadius: 28, 
-    backgroundColor: "rgba(255,255,255,0.1)", 
-    alignItems: "center", 
-    justifyContent: "center", 
-    marginBottom: 8 
-  },
-  speakerIcon: { 
-    fontSize: 24 
-  },
-  speakerText: { 
-    color: "#FFF", 
-    opacity: 0.6, 
-    marginBottom: 40 
-  },
-  endButton: { 
-    width: 72, 
-    height: 72, 
-    borderRadius: 36, 
-    backgroundColor: "#FF4444", 
-    alignItems: "center", 
-    justifyContent: "center", 
-    transform: [{ rotate: "135deg" }] 
-  },
-  endIcon: { 
-    fontSize: 32, 
-    color: "#FFF" 
-  },
+  aiMessageText: { color: "#4ADE80", fontSize: 32, fontWeight: "800", textAlign: "center", lineHeight: 45 },
+  subtitle: { color: "#FFF", fontSize: 18, opacity: 0.5, textAlign: "center", lineHeight: 26 },
+  voiceBox: { marginTop: 30, height: 40, justifyContent: "center" },
+  voiceDots: { color: "#4ADE80", fontSize: 24, letterSpacing: 4 },
+  bottomArea: { paddingBottom: 60, alignItems: "center" },
+  speakerButton: { width: 56, height: 56, borderRadius: 28, backgroundColor: "rgba(255,255,255,0.1)", alignItems: "center", justifyContent: "center", marginBottom: 8 },
+  speakerIcon: { fontSize: 24 },
+  speakerText: { color: "#FFF", opacity: 0.6, marginBottom: 40 },
+  endButton: { width: 72, height: 72, borderRadius: 36, backgroundColor: "#FF4444", alignItems: "center", justifyContent: "center", transform: [{ rotate: "135deg" }] },
+  endIcon: { fontSize: 32, color: "#FFF" },
 });
