@@ -41,7 +41,7 @@ export default function RootLayout() {
       
       // 서버에서 푸시를 보낼 때 { "type": "AI_CALL" } 데이터를 실어 보낸다고 가정합니다.
       if (data && data.type === "AI_CALL") {
-        router.push("/patient_incoming_call");
+        router.replace("/patient_incoming_call");
       }
     });
 
@@ -49,7 +49,7 @@ export default function RootLayout() {
     const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
       const data = response.notification.request.content.data;
       if (data && data.type === "AI_CALL") {
-        router.push("/patient_incoming_call");
+        router.replace("/patient_incoming_call");
       }
     });
 
