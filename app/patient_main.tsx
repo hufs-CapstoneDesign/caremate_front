@@ -117,20 +117,7 @@ export default function PatientMain() {
           </View>
           <Ionicons name="chevron-forward" size={24} color="#0FA67A" />
         </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={styles.connectCard}
-          onPress={() => router.push("/patient_connect_code")}
-        >
-          <View style={styles.connectIconCircle}>
-            <Ionicons name="link-outline" size={28} color="#4A90E2" />
-          </View>
-          <View style={styles.cardTextBox}>
-            <Text style={styles.cardTitle}>보호자 연결하기</Text>
-            <Text style={styles.cardDesc}>발급받은 연결 코드를 입력하세요</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color="#4A90E2" />
-        </TouchableOpacity>
+
 
         {/* 테스트용 버튼: 디자인 시스템에 맞춰 보조 카드로 변경 */}
         <TouchableOpacity

@@ -1,8 +1,12 @@
 import { router } from "expo-router";
 import { Bell, Calendar, User, Phone, Plus } from 'lucide-react-native';
-import React from 'react';
-import { TouchableOpacity, View, ScrollView } from 'react-native';
+import React, { useState } from 'react'; // 🌟 API 상태 관리를 위한 useState 추가
+import { TouchableOpacity, View, ScrollView, Alert, ActivityIndicator } from 'react-native'; // 🌟 인디케이터, 알럿 추가
 import styled from 'styled-components/native';
+
+// --- 백엔드 연결을 위한 설정 ---
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5"; 
 
 // --- 타입 정의 (TypeScript 빨간 줄 방지) ---
 interface StyleProps {
@@ -14,6 +18,41 @@ interface StyleProps {
 }
 
 const GuardianMain = () => {
+  // 🌟 통화 요청 중복 탭 방지 및 로딩 표시용 상태
+  const [isCalling, setIsCalling] = useState(false);
+
+  // 🌟 [전화 걸기] 메뉴를 탭했을 때 백엔드로 FCM 발송 중계를 요청하는 함수
+  const handleRequestCall = async () => {
+    if (isCalling) return;
+
+    try {
+      setIsCalling(true);
+
+      const response = await fetch(`http://${API_BASE_URL}/calls`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          patient_id: PATIENT_ID,
+          call_type: "requested", // 보호자 수동 요청임을 명시
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("서버에 통화 요청을 실패했습니다.");
+      }
+
+      Alert.alert("통화 연결 시도", "어르신께 AI 안부 통화 신호를 보냈습니다. 잠시만 기다려주세요.");
+      
+    } catch (error) {
+      console.error("실시간 전화걸기 오류:", error);
+      Alert.alert("연결 실패", "서버 네트워크 상태를 확인 후 다시 시도해 주세요.");
+    } finally {
+      setIsCalling(false);
+    }
+  };
+
   return (
     <Container>
       {/* 상단 헤더 */}
@@ -57,12 +96,19 @@ const GuardianMain = () => {
             </MenuIconBox>
             <MenuText fontSize={16}>리포트 열람</MenuText>
           </MenuButton>
-          <MenuButton activeOpacity={0.7}>
+
+          {/* 🌟 수정: 원래 UI 컴포넌트 그대로 유지하고 onPress 및 로딩 분기만 추가 */}
+          <MenuButton activeOpacity={0.7} onPress={handleRequestCall}>
             <MenuIconBox backgroundColor="#FFF0F0" size={80}>
-              <Phone color="#FF6B6B" size={36} />
+              {isCalling ? (
+                <ActivityIndicator size="small" color="#FF6B6B" />
+              ) : (
+                <Phone color="#FF6B6B" size={36} />
+              )}
             </MenuIconBox>
-            <MenuText fontSize={16}>전화 걸기</MenuText>
+            <MenuText fontSize={16}>{isCalling ? "연결 중" : "전화 걸기"}</MenuText>
           </MenuButton>
+
           <MenuButton onPress={() => router.push("/caregiver_scheduling")}>
             <MenuIconBox backgroundColor="#E8F5E9" size={80}>
               <Calendar color="#2ECC71" size={36} />
@@ -86,7 +132,6 @@ const GuardianMain = () => {
           </NotiContent>
         </NotificationItem>
 
-
         {/* 환자 추가 버튼 */}
         <AddPatientButton
           activeOpacity={0.6}
@@ -104,7 +149,7 @@ const GuardianMain = () => {
 
 export default GuardianMain;
 
-// --- 스타일 정의 (Styled-Components) ---
+// --- 스타일 정의 (Styled-Components - 기존 구조 100% 동일) ---
 
 const Container = styled.SafeAreaView`
   flex: 1;
@@ -318,6 +363,6 @@ const PlusIconWrapper = styled.View`
   height: 30px;
   border-radius: 15px;
   background-color: #F3F4F6;
-  justify-content: center;1A1C1E
+  justify-content: center;
   align-items: center;
 `;
