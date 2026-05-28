@@ -106,7 +106,9 @@ export default function RootLayout() {
 
     // 1. 앱이 켜져 있는 상태(Foreground)에서 알림을 받았을 때의 처리
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      console.log("🔔 [포그라운드] 알림 수신 성공!!!", notification);
       const data = notification.request.content.data;
+      console.log("📦 수신된 데이터 Payload:", data);
       
       if (data && data.type === "AI_CALL") {
         router.replace("/patient_incoming_call");

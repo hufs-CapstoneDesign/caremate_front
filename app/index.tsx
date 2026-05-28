@@ -7,17 +7,71 @@ import {
   TouchableOpacity,
   View,
   SafeAreaView,
+  Alert,
 } from "react-native";
 // 벡터 아이콘 사용을 위해 추가
 import { Heart } from 'lucide-react-native';
+// 안전한 로컬 저장소를 위해 expo-secure-store 임포트
+import * as SecureStore from "expo-secure-store";
+// 🌟 우리가 만든 공통 API 함수 임포트!
+import { requestWithToken } from '../services/api';
 
 export default function StartScreen() {
+
+  // 🌟 보호자 앱 시작 버튼 클릭 시
+  const handleCaregiverStart = async () => {
+    try {
+      const role = await SecureStore.getItemAsync("userRole");
+      const token = await SecureStore.getItemAsync("guardianToken");
+
+      if (role === "GUARDIAN" && token) {
+        // 🌟 [api.js 사용] 서버에 토큰이 진짜 유효한지 검증 요청을 보냅니다.
+        // 엔드포인트("auth/validate")는 백엔드 설계에 맞게 수정하세요.
+        const response = await requestWithToken("auth/validate", {});
+
+        if (response.isValid) { // 서버가 유효하다고 응답하면
+          router.push("/caregiver_main");
+          return;
+        }
+      }
+      
+      // 토큰이 없거나 유효하지 않다면 메인 화면(또는 로그인 화면)으로 이동
+      router.push("/caregiver_main"); 
+    } catch (error) {
+      console.error("보호자 토큰 검증 실패:", error);
+      router.push("/caregiver_main");
+    }
+  };
+
+  // 🌟 환자 앱 시작 버튼 클릭 시
+  const handlePatientStart = async () => {
+    try {
+      const role = await SecureStore.getItemAsync("userRole");
+      const token = await SecureStore.getItemAsync("patientToken");
+
+      if (role === "PATIENT" && token) {
+        // 🌟 [api.js 사용] 서버에 토큰이 진짜 유효한지 검증 요청을 보냅니다.
+        const response = await requestWithToken("auth/validate", {});
+
+        if (response.isValid) { // 서버가 유효하다고 응답하면
+          router.push("/patient_main");
+          return;
+        }
+      }
+      
+      // 토큰이 없거나 유효하지 않다면 연동 코드 입력창으로 이동
+      router.push("/patient_connect_code");
+    } catch (error) {
+      console.error("환자 토큰 검증 실패:", error);
+      router.push("/patient_connect_code");
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
       <View style={styles.logoSection}>
-        {/* 뇌 이모지 대신 세련된 벡터 아이콘으로 교체 */}
         <View style={styles.logoBox}>
           <Heart size={50} color="#4A90E2" fill="#4A90E2" fillOpacity={0.2} />
         </View>
@@ -35,46 +89,42 @@ export default function StartScreen() {
       <View style={styles.buttonSection}>
         <TouchableOpacity 
           style={styles.loginCard} 
-          onPress={() => router.push("/caregiver_main")}
+          onPress={handleCaregiverStart}
         >
-          <View style={[styles.iconBox, { backgroundColor: '#EEF5FF' }]}>
-            <Text style={styles.cardIcon}>🛡️</Text>
+          <View style={[styles.iconBox, { backgroundColor: "#EBF5FF" }]}>
+            <Text style={styles.icon}>🛡️</Text>
           </View>
           <View style={styles.cardTextBox}>
-            <Text style={styles.cardTitle}>보호자 로그인</Text>
-            <Text style={styles.cardSub}>리포트 확인 및 환자 관리</Text>
+            <Text style={styles.cardTitle}>보호자 앱 시작하기</Text>
+            <Text style={styles.cardDesc}>어르신의 상태 레포트를 확인합니다.</Text>
           </View>
-          <Text style={styles.arrow}>›</Text>
+          <Text style={styles.arrow}>&gt;</Text>
         </TouchableOpacity>
 
         <TouchableOpacity 
           style={styles.loginCard} 
-          onPress={() => router.push("/patient_main")}
+          onPress={handlePatientStart} 
         >
-          <View style={[styles.iconBox, { backgroundColor: '#E8F5E9' }]}>
-            <Text style={styles.cardIcon}>👤</Text>
+          <View style={[styles.iconBox, { backgroundColor: "#E8F5E9" }]}>
+            <Text style={styles.icon}>👵</Text>
           </View>
           <View style={styles.cardTextBox}>
-            <Text style={styles.cardTitle}>환자 로그인</Text>
-            <Text style={styles.cardSub}>AI와 대화 및 통화 기능</Text>
+            <Text style={styles.cardTitle}>환자 앱 시작하기</Text>
+            <Text style={styles.cardDesc}>AI 케어봇과 일일 통화를 진행합니다.</Text>
           </View>
-          <Text style={styles.arrow}>›</Text>
+          <Text style={styles.arrow}>&gt;</Text>
         </TouchableOpacity>
       </View>
-
-      <Text style={styles.footer}>V1.0.0 · CAREMATE DEMO</Text>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-
   container: {
     flex: 1,
-    backgroundColor: "#F8F9FB",
-    paddingHorizontal: 25,
+    backgroundColor: "#F8F9FA",
     justifyContent: "space-between",
-    paddingVertical: 50,
+    paddingVertical: 40,
   },
   logoSection: {
     alignItems: "center",
@@ -87,13 +137,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 24,
-    // 그림자 효과로 입체감 부여
-    elevation: 8,
-    shadowColor: "#4A90E2",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
+    marginBottom: 20,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
   },
   title: {
     fontSize: 32,
@@ -133,43 +182,37 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
-    marginLeft: 10, marginRight: 10
+    marginLeft: 10, 
+    marginRight: 10
   },
   iconBox: {
     width: 60,
     height: 60,
-    borderRadius: 18,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 18,
   },
-  cardIcon: {
+  icon: {
     fontSize: 28,
   },
   cardTextBox: {
     flex: 1,
+    marginLeft: 16,
   },
   cardTitle: {
-    color: "#1A1C1E",
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: "700",
-    marginBottom: 4,
+    color: "#1A1C1E",
   },
-  cardSub: {
-    color: "#8E8E93",
-    fontSize: 14,
+  cardDesc: {
+    fontSize: 13,
+    color: "#8E9AA7",
+    marginTop: 4,
   },
   arrow: {
-    color: "#D1D1D6",
-    fontSize: 30,
-    fontWeight: "300",
-    marginLeft: 10,
-  },
-  footer: {
-    color: "#C7C7CC",
-    textAlign: "center",
-    fontSize: 12,
-    fontWeight: "500",
-    letterSpacing: 1,
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#CDD4DB",
+    marginRight: 4,
   },
 });
