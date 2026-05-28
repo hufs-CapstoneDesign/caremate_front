@@ -254,6 +254,7 @@ const GuardianAISetting = () => {
                   value={currentTime}
                   mode="time"
                   is24Hour={false}
+                  minuteInterval={10}
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   onChange={onTimeChange}
                 />
