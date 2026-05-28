@@ -41,6 +41,7 @@ export default function AddPatientSymptomScreen() {
     setSeverityInfo(level);
 
     // 🌟 5. 다음 라우트로 이동 (질문하셨던 흐름대로 이동)
+    console.log("증상 정보 전역 저장 완료:", level);
     router.push("/caregiver_add_patient/cognitive");
   };
 

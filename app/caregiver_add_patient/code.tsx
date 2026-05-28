@@ -40,6 +40,7 @@ export default function AddPatientCodeScreen() {
     };
 
     console.log("================ [백엔드 요청 규격 JSON 페이로드] ================");
+    console.log("최종 전송 데이터 구조:");
     console.log(JSON.stringify(finalPayload, null, 2));
     console.log("==========================================================");
 
@@ -119,7 +120,7 @@ export default function AddPatientCodeScreen() {
           {isSubmitting ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <NextText>{finalCode ? "보호자 홈으로" : "환자 등록 및 코드 받기"}</NextText>
+            <NextText>{finalCode ? "보호자 홈으로" : "환자 등록"}</NextText>
           )}
         </NextButton>
       </BottomArea>

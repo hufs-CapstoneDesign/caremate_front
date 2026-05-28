@@ -28,6 +28,7 @@ export default function AddPatientMedicationScreen() {
     setMedication(medicationCount);
 
     // 코드 발급 페이지로 이동
+    console.log("복약 정보 전역 저장 완료:", medicationCount);
     router.push("/caregiver_add_patient/code");
   };
 
