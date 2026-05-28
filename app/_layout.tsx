@@ -6,52 +6,57 @@ import {
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { Platform, AppRegistry } from "react-native"; // 🌟 AppRegistry 임포트 추가
-import * as Device from "expo-device"; 
+import { Platform, AppRegistry } from "react-native";
+import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
-import Constants from 'expo-constants'; 
+import Constants from "expo-constants";
 import { NotificationHandler } from "expo-notifications";
 import "react-native-reanimated";
+import messaging from "@react-native-firebase/messaging"; // 🌟 FCM 임포트
 
-// ⭕ 빨간 줄 에러 오타 교정 완료
 import { useColorScheme } from "@/hooks/use-color-scheme";
-// 알림이 왔을 때 디바이스 상단에 배너를 띄울지 말지 결정하는 기본 핸들러 설정
+
+// 앱이 켜져 있을 때 알림 배너를 어떻게 표시할지 설정
 const notificationHandler: NotificationHandler = {
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
-    shouldShowBanner: true, 
+    shouldShowBanner: true,
     shouldShowList: true,
   }),
 };
-
 Notifications.setNotificationHandler(notificationHandler);
 
-// =========================================================================
-// 🌟 [수정] 중복 등록 경고(called multiple times) 방어 코드 적용
-// =========================================================================
-if (Platform.OS === 'android') {
-  // 현재 이미 등록된 HeadlessTask 목록에 우리 키가 없을 때만 새로 등록합니다.
-  const isTaskRegistered = AppRegistry.getAppKeys().includes('ReactNativeFirebaseMessagingHeadlessTask') || 
-                           (AppRegistry as any).getRunnable?.('ReactNativeFirebaseMessagingHeadlessTask'); 
-                           // 환경에 따라 가끔 다르게 체크해야 해서 안전하게 방어벽을 세웁니다.
+// 안드로이드 백그라운드 태스크 중복 등록 방지
+if (Platform.OS === "android") {
+  const isTaskRegistered =
+    AppRegistry.getAppKeys().includes(
+      "ReactNativeFirebaseMessagingHeadlessTask"
+    ) ||
+    (AppRegistry as any).getRunnable?.(
+      "ReactNativeFirebaseMessagingHeadlessTask"
+    );
 
   if (!isTaskRegistered) {
     try {
-      AppRegistry.registerHeadlessTask('ReactNativeFirebaseMessagingHeadlessTask', () => {
-        return async (remoteMessage) => {
-          console.log('📦 [HeadlessTask] 백그라운드 푸시 태스크 정상 응답 완료', remoteMessage);
-          return Promise.resolve();
-        };
-      });
+      AppRegistry.registerHeadlessTask(
+        "ReactNativeFirebaseMessagingHeadlessTask",
+        () => {
+          return async (remoteMessage: any) => {
+            console.log(
+              "📦 [HeadlessTask] 백그라운드 푸시 태스크 완료",
+              remoteMessage
+            );
+            return Promise.resolve();
+          };
+        }
+      );
     } catch (e) {
-      console.log('💡 HeadlessTask가 이미 등록되어 있어 생략합니다.');
+      console.log("💡 HeadlessTask가 이미 등록되어 있어 생략합니다.");
     }
   }
 }
-// ==================================================================================================================================================
-
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -62,25 +67,22 @@ export default function RootLayout() {
   const router = useRouter();
 
   useEffect(() => {
-    // [FCM 토큰 발급 및 시스템 등록 함수]
+    // FCM 토큰 발급 및 알림 권한 요청
     async function registerForPushNotificationsAsync() {
-      // 1. 실제 물리 디바이스인지 검증 (에뮬레이터는 푸시 수신 불가)
       if (!Device.isDevice) {
-        console.log("⚠️ 알림 알림: 시뮬레이터 환경에서는 FCM 토큰 발급이 제한됩니다.");
+        console.log("⚠️ 시뮬레이터 환경에서는 FCM 토큰 발급이 제한됩니다.");
         return;
       }
 
-      // 2. 현재 앱의 알림 권한 상태 체크
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      const { status: existingStatus } =
+        await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
 
-      // 권한이 없다면 사용자에게 팝업 요청
       if (existingStatus !== "granted") {
         const { status } = await Notifications.requestPermissionsAsync();
         finalStatus = status;
       }
 
-      // 끝내 권한을 거부했다면 종료
       if (finalStatus !== "granted") {
         console.log("❌ 푸시 알림 권한 획득 실패");
         return;
@@ -92,74 +94,100 @@ export default function RootLayout() {
           Constants.easConfig?.projectId;
 
         if (!projectId) {
-          console.error("🚨 app.json에서 EAS Project ID를 찾을 수 없습니다. google-services.json 파일이 올바르게 설정되었는지 확인하세요.");
+          console.error("🚨 EAS Project ID를 찾을 수 없습니다.");
           return;
         }
-        // 3. 🌟 요청하신 네이티브 디바이스 푸시 토큰(FCM 구조) 발급 방식으로 교체
+
         const token = await Notifications.getDevicePushTokenAsync();
-        
-        console.log("==========================================");
-        console.log("🎫 발급 완료된 고유 디바이스 푸시 토큰(FCM):");
-        console.log(token.data);
-        console.log("==========================================");
+        console.log("🎫 디바이스 푸시 토큰(FCM):", token.data);
 
-        // 🌟 이 위치에서 나중에 백엔드로 토큰을 보내는 API를 호출하시면 됩니다.
-        await fetch(`${process.env.EXPO_PUBLIC_API_URL}/auth/fcm-token`, { 
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fcm_token: token.data })
-         });
-
+        await fetch(`${process.env.EXPO_PUBLIC_API_URL}/auth/fcm-token`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fcm_token: token.data }),
+        });
       } catch (error) {
-        console.error("🚨 푸시 토큰 발급 중 에러 발생:", error);
+        console.error("🚨 푸시 토큰 발급 중 에러:", error);
       }
 
-      // 4. 안드로이드 전용 고중요도 알림 채널 강제 할당 (잠금화면/통화 팝업 통과용 필수)
+      // 안드로이드 알림 채널 설정 (8.0 이상 필수)
       if (Platform.OS === "android") {
         await Notifications.setNotificationChannelAsync("default", {
           name: "default",
-          importance: Notifications.AndroidImportance.MAX, // 최우선 순위 설정
+          importance: Notifications.AndroidImportance.MAX,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: "#4A90E2",
         });
       }
     }
 
-    // 앱이 로드될 때 푸시 토큰 발급 절차를 시작합니다.
     registerForPushNotificationsAsync();
 
-    // 1. 앱이 켜져 있는 상태(Foreground)에서 알림을 받았을 때의 처리
-    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
-      console.log("🔔 [포그라운드] 알림 수신 성공!!!", notification);
-      const data = notification.request.content.data;
-      console.log("📦 수신된 데이터 Payload:", data);
-      
-      if (data && data.type === "AI_CALL") {
+    // ✅ 1. 포그라운드: 앱이 켜져 있을 때 FCM 메시지 수신
+    // 혼합형 메시지는 포그라운드에서 배너를 자동으로 안 띄워줘서
+    // FCM으로 받은 뒤 expo-notifications로 직접 배너를 생성합니다.
+    const unsubscribeForeground = messaging().onMessage(async (remoteMessage) => {
+      console.log("🔔 [포그라운드] FCM 메시지 수신:", remoteMessage);
+      const data = remoteMessage.data;
+
+      // AI_CALL이면 배너 없이 바로 화면 이동
+      if (data?.type === "AI_CALL") {
         router.replace("/patient_incoming_call");
+        return;
       }
+
+      // 일반 알림은 로컬 배너로 직접 띄우기
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: remoteMessage.notification?.title ?? "알림",
+          body: remoteMessage.notification?.body ?? "",
+          data: data ?? {},
+        },
+        trigger: null, // null = 즉시 표시
+      });
     });
 
-    // 2. 사용자가 알림 배너를 클릭해서 앱이 열렸을 때(Background / Killed 상태)의 처리
-    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      const data = response.notification.request.content.data;
-      if (data && data.type === "AI_CALL") {
-        router.replace("/patient_incoming_call");
+    // ✅ 2. 백그라운드: 홈화면 등에서 배너 클릭 시
+    // OS가 배너를 띄워주고, 클릭하면 이 리스너가 실행됩니다.
+    const unsubscribeBackground = messaging().onNotificationOpenedApp(
+      (remoteMessage) => {
+        console.log("📲 [백그라운드] 알림 클릭으로 앱 열림:", remoteMessage);
+        const data = remoteMessage.data;
+        if (data?.type === "AI_CALL") {
+          router.replace("/patient_incoming_call");
+        }
       }
-    });
+    );
 
-    // 컴포넌트 언마운트 시 리스너 해제하여 메모리 누수 방지
+    // ✅ 3. Killed: 앱이 완전히 종료된 상태에서 배너 클릭 시
+    // onNotificationOpenedApp은 동작 안 하고, getInitialNotification으로
+    // "이 알림 때문에 앱이 켜졌구나"를 감지합니다.
+    messaging()
+      .getInitialNotification()
+      .then((remoteMessage) => {
+        if (remoteMessage) {
+          console.log("🚀 [Killed] 알림 클릭으로 앱 최초 실행:", remoteMessage);
+          const data = remoteMessage.data;
+          if (data?.type === "AI_CALL") {
+            // 앱이 막 켜진 직후라 router가 준비되기까지 약간 지연
+            setTimeout(() => {
+              router.replace("/patient_incoming_call");
+            }, 500);
+          }
+        }
+      });
+
+    // 컴포넌트 언마운트 시 리스너 해제 (메모리 누수 방지)
     return () => {
-      notificationListener.remove();
-      responseListener.remove();
+      unsubscribeForeground();
+      unsubscribeBackground();
     };
   }, []);
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      {/* ⭕ 오타 기호(\)가 제거된 깔끔한 스택 설정 구조 */}
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
-
         <Stack.Screen
           name="patient_incoming_call"
           options={{
@@ -167,7 +195,6 @@ export default function RootLayout() {
             animation: "fade",
           }}
         />
-
         <Stack.Screen name="patient_call" />
         <Stack.Screen name="caregiver_main" />
       </Stack>
