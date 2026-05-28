@@ -23,7 +23,7 @@ interface ScheduleItem {
 interface ApiResponseSchedule {
   schedule_id: string;
   time: string;       // "09:00", "14:00" 등 (HH:mm)
-  dayOfWeek?: string; // 요일별 조회를 위해 추가 요청하신 요일 필드 가동
+  dayOfWeek?: number; // 요일별 조회를 위해 추가 요청하신 요일 필드 가동
 }
 
 const GuardianAISetting = () => {
@@ -79,8 +79,8 @@ const GuardianAISetting = () => {
             return {
               // 백엔드에서 준 schedule_id를 고유 key로 매핑 (없을 시 대안 id 생성)
               id: item.schedule_id || `existing_${index}_${Date.now()}`,
-              // 추후 추가될 요일 필드 연동 (기본값 '월')
-              day: item.dayOfWeek || '월', 
+              // 추후 추가될 요일 필드 연동 (기본값 0 - 월요일)
+              day: item.dayOfWeek !== undefined ? days[item.dayOfWeek] : '월',
               time: parseBackendTimeToDate(item.time)
             };
           });
@@ -169,7 +169,7 @@ const GuardianAISetting = () => {
 
     try {
       // 기존 명세서 기반 저장 API 통신 (POST 또는 PUT 프로젝트 규칙에 따라 사용)
-      await axios.post(`http://${process.env.EXPO_PUBLIC_API_URL}/schedules/${PATIENT_ID}`, payload);
+      await axios.patch(`http://${process.env.EXPO_PUBLIC_API_URL}/schedules/${PATIENT_ID}`, payload);
       
       Alert.alert('성공', 'AI 안부 전화 설정이 수정되었습니다.', [
         { text: '확인', onPress: () => router.push("/caregiver_main") }
