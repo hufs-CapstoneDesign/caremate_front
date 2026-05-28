@@ -107,7 +107,7 @@ export default function RootLayout() {
     // 1. 앱이 켜져 있는 상태(Foreground)에서 알림을 받았을 때의 처리
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {
       const data = notification.request.content.data;
-      
+      console.log("📬 알림 수신 (Foreground):", data);
       if (data && data.type === "AI_CALL") {
         router.replace("/patient_incoming_call");
       }
