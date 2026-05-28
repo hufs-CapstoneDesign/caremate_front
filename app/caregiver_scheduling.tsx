@@ -140,7 +140,7 @@ const GuardianAISetting = () => {
       aiCallEnabled: isEnabled,
       schedules: isEnabled ? schedules.map(item => ({
         schedule_id: item.id.startsWith('new_') ? null : item.id,
-        dayOfWeek: item.day, 
+        dayOfWeek: days.indexOf(item.day),
         time: formatBackendTime(item.time)
       })) : []
     };
