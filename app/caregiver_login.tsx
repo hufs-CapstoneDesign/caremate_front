@@ -15,9 +15,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
 } from "react-native";
-// 🌟 lucide-react-native 아이콘 임포트 확인
 import { ShieldCheck, Lock, Mail } from 'lucide-react-native';
-// 안전한 토큰 저장을 위한 SecureStore 임포트
 import * as SecureStore from "expo-secure-store";
 
 export default function CaregiverLoginScreen() {
@@ -35,8 +33,7 @@ export default function CaregiverLoginScreen() {
     setIsLoading(true);
 
     try {
-      // 백엔드 로그인 API 호출 (환경 변수 또는 실제 URL 확인)
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/auth/caregiver/login`, {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -46,12 +43,16 @@ export default function CaregiverLoginScreen() {
 
       const result = await response.json();
 
-      if (response.ok && result.token) {
-        // 금고(SecureStore)에 역할과 보호자 토큰 저장
+      // 🌟 [수정 반영] 백엔드 규격에 맞춰 result.access_token 구조로 변경
+      if (response.ok && result.access_token) {
+        
+        // 1. 금고(SecureStore)에 앞으로 공통 api가 읽어갈 역할(Role) 저장
         await SecureStore.setItemAsync("userRole", "GUARDIAN");
-        await SecureStore.setItemAsync("guardianToken", result.token);
+        
+        // 2. 전달받은 진짜 'access_token' 알갱이를 guardianToken 키로 저장
+        await SecureStore.setItemAsync("guardianToken", result.access_token);
 
-        // 보호자 메인 화면으로 전송
+        // 3. 보호자 메인 화면으로 이동
         router.replace("/caregiver_main");
       } else {
         Alert.alert("로그인 실패", result.message || "이메일 또는 비밀번호가 일치하지 않습니다.");
@@ -75,7 +76,6 @@ export default function CaregiverLoginScreen() {
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={styles.innerContainer}>
             
-            {/* 상단 로고 섹션 */}
             <View style={styles.logoSection}>
               <View style={styles.logoBox}>
                 <ShieldCheck size={50} color="#4A90E2" fill="#4A90E2" fillOpacity={0.2} />
@@ -84,12 +84,8 @@ export default function CaregiverLoginScreen() {
               <Text style={styles.subtitle}>어르신의 안전한 일상을 관리합니다</Text>
             </View>
 
-            {/* 입력 폼 섹션 */}
             <View style={styles.formSection}>
-              
-              {/* 이메일 입력창 */}
               <View style={styles.inputContainer}>
-                {/* 🌟 빨간 줄 방지: 아이콘 컴포넌트 자체에 스타일 프롭스를 안전하게 전달 */}
                 <View style={styles.iconWrapper}>
                   <Mail size={20} color="#8E9AA7" />
                 </View>
@@ -104,9 +100,7 @@ export default function CaregiverLoginScreen() {
                 />
               </View>
 
-              {/* 비밀번호 입력창 */}
               <View style={styles.inputContainer}>
-                {/* 🌟 빨간 줄 방지: 아이콘 컴포넌트 자체에 스타일 프롭스를 안전하게 전달 */}
                 <View style={styles.iconWrapper}>
                   <Lock size={20} color="#8E9AA7" />
                 </View>
@@ -120,10 +114,8 @@ export default function CaregiverLoginScreen() {
                   onChangeText={setPassword}
                 />
               </View>
-              
             </View>
 
-            {/* 하단 버튼 섹션 */}
             <View style={styles.buttonSection}>
               <TouchableOpacity 
                 style={[styles.loginButton, isLoading && styles.disabledButton]} 
@@ -220,7 +212,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#1A1C1E",
     fontWeight: "500",
-    height: "100%", // 입력 영역 확보
+    height: "100%",
   },
   buttonSection: {
     gap: 14,

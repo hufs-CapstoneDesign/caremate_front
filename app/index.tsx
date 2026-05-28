@@ -18,32 +18,34 @@ import { requestWithToken } from '../services/api';
 
 export default function StartScreen() {
 
-  // 🌟 보호자 앱 시작 버튼 클릭 시
+  // 🌟 보호자 앱 시작 버튼 클릭 시 (수정된 핵심 로직!)
   const handleCaregiverStart = async () => {
     try {
       const role = await SecureStore.getItemAsync("userRole");
       const token = await SecureStore.getItemAsync("guardianToken");
 
+      // 보호자로 등록된 토큰 정보가 존재할 때만 서버 검증을 수행
       if (role === "GUARDIAN" && token) {
-        // 🌟 [api.js 사용] 서버에 토큰이 진짜 유효한지 검증 요청을 보냅니다.
-        // 엔드포인트("auth/validate")는 백엔드 설계에 맞게 수정하세요.
+        // [api.js 사용] 서버에 토큰이 진짜 유효한지 검증 요청을 보냅니다.
         const response = await requestWithToken("auth/validate", {});
 
-        if (response.isValid) { // 서버가 유효하다고 응답하면
+        // 서버에서 유효한 로그인 토큰이라고 인정하면 바로 보호자 메인 화면으로 이동
+        if (response && response.isValid) { 
           router.push("/caregiver_main");
           return;
         }
       }
       
-      // 토큰이 없거나 유효하지 않다면 메인 화면(또는 로그인 화면)으로 이동
-      router.push("/caregiver_main"); 
+      // 🌟 [요구사항 반영] 토큰이 없거나 유효하지 않다면 새로 만든 보호자 로그인 화면으로 이동
+      router.push("/caregiver_login"); 
     } catch (error) {
       console.error("보호자 토큰 검증 실패:", error);
-      router.push("/caregiver_main");
+      // 안전하게 에러가 났을 때도 로그인 화면으로 유도합니다.
+      router.push("/caregiver_login");
     }
   };
 
-  // 🌟 환자 앱 시작 버튼 클릭 시
+  // 🌟 환자 앱 시작 버튼 클릭 시 (기존 코드 100% 그대로 유지)
   const handlePatientStart = async () => {
     try {
       const role = await SecureStore.getItemAsync("userRole");
