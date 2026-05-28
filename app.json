@@ -29,7 +29,6 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      ["expo-notifications"],
       "expo-router",
       [
         "expo-splash-screen",
@@ -43,8 +42,12 @@
           }
         }
       ],
-      "@react-native-community/datetimepicker"
-    ], 
+      [
+        "expo-notifications"
+      ],  
+      "@react-native-community/datetimepicker",
+      "expo-secure-store"
+    ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true

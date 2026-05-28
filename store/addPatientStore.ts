@@ -1,8 +1,8 @@
 import { create } from "zustand";
 
-// ==========================================
-// 1. 타입 정의 (Types & Interfaces)
-// ==========================================
+// ==========================================\
+// 1. 타입 정의 (Types & Interfaces)\
+// ==========================================\
 type Relation = "자녀" | "배우자" | "손주/손녀" | "형제/자매" | "기타" | "";
 type SeverityStage = "경증" | "중등도" | "중증" | "";
 
@@ -36,11 +36,11 @@ interface Contact {
   nickname: string;
 }
 
-// ==========================================
-// 2. 스토어 인터페이스 (Store Interface)
-// ==========================================
+// ==========================================\
+// 2. 스토어 인터페이스 (Store Interface)\
+// ==========================================\
 interface AddPatientState {
-  // --- 상태 (State) ---
+  // --- 데이터 상태 (Data State) ---
   name: string;
   age: string;
   relation: Relation;
@@ -49,24 +49,22 @@ interface AddPatientState {
   familyMembers: FamilyMember[];
   contacts: Contact[];
   medication: Medication;
-  code: string; // 🌟 추가: 발급된 연결 코드 상태
 
-  // --- 수정 함수 (Actions) ---
+  // --- 함수 관리 (Actions) ---
   setBasicInfo: (data: { name: string; age: string; relation: Relation }) => void;
   setSeverityInfo: (severity: SeverityStage) => void;
   setSymptomsInfo: (symptoms: Symptom[]) => void;
   setFamilyMembers: (members: FamilyMember[]) => void;
   setContacts: (contacts: Contact[]) => void;
   setMedication: (medication: Medication) => void;
-  setCode: (code: string) => void; // 🌟 추가: 코드 저장을 위한 함수
 
   // --- 초기화 함수 ---
   reset: () => void;
 }
 
-// ==========================================
-// 3. 스토어 생성 (Store Implementation)
-// ==========================================
+// ==========================================\
+// 3. 스토어 생성 (Store Implementation)\
+// ==========================================\
 export const useAddPatientStore = create<AddPatientState>((set) => ({
   // --- 초기 데이터 상태 (Initial State) ---
   name: "",
@@ -77,7 +75,6 @@ export const useAddPatientStore = create<AddPatientState>((set) => ({
   familyMembers: [],
   contacts: [],
   medication: "",
-  code: "", // 🌟 초기값 추가
 
   // --- 함수 구현 (Action Implementation) ---
   setBasicInfo: (data) =>
@@ -112,13 +109,6 @@ export const useAddPatientStore = create<AddPatientState>((set) => ({
       medication: medication,
     }),
 
-  // 🌟 추가: setCode 함수 구현
-  setCode: (code) =>
-    set({
-      code: code,
-    }),
-
-  // 전체 데이터 리셋
   reset: () =>
     set({
       name: "",
@@ -129,6 +119,5 @@ export const useAddPatientStore = create<AddPatientState>((set) => ({
       familyMembers: [],
       contacts: [],
       medication: "",
-      code: "", // 🌟 리셋 시 코드도 함께 비워지도록 수정
     }),
 }));

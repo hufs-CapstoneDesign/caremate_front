@@ -74,7 +74,7 @@ export default function CaregiverReport() {
       if (!patient_id || !selectedDate) return;
       setIsLoading(true);
       try {
-        const url = `${process.env.EXPO_PUBLIC_API_URL}/reports/${patient_id}/${selectedDate}`;
+        const url = `${process.env.EXPO_PUBLIC_API_URL}/reports/${selectedDate}`;
         const response = await fetch(url);
         
         if (response.status === 200) {
