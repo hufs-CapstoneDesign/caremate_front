@@ -6,16 +6,15 @@ import {
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { Platform } from "react-native"; 
+import { Platform, AppRegistry } from "react-native"; // 🌟 AppRegistry 임포트 추가
 import * as Device from "expo-device"; 
 import * as Notifications from "expo-notifications";
-import Constants from 'expo-constants'; // 👈 이 줄을 추가해 주세요!
+import Constants from 'expo-constants'; 
 import { NotificationHandler } from "expo-notifications";
 import "react-native-reanimated";
 
 // ⭕ 빨간 줄 에러 오타 교정 완료
 import { useColorScheme } from "@/hooks/use-color-scheme";
-
 // 알림이 왔을 때 디바이스 상단에 배너를 띄울지 말지 결정하는 기본 핸들러 설정
 const notificationHandler: NotificationHandler = {
   handleNotification: async () => ({
@@ -28,6 +27,32 @@ const notificationHandler: NotificationHandler = {
 };
 
 Notifications.setNotificationHandler(notificationHandler);
+
+// =========================================================================
+// 🌟 [수정] 중복 등록 경고(called multiple times) 방어 코드 적용
+// =========================================================================
+if (Platform.OS === 'android') {
+  // 현재 이미 등록된 HeadlessTask 목록에 우리 키가 없을 때만 새로 등록합니다.
+  const isTaskRegistered = AppRegistry.getAppKeys().includes('ReactNativeFirebaseMessagingHeadlessTask') || 
+                           (AppRegistry as any).getRunnable?.('ReactNativeFirebaseMessagingHeadlessTask'); 
+                           // 환경에 따라 가끔 다르게 체크해야 해서 안전하게 방어벽을 세웁니다.
+
+  if (!isTaskRegistered) {
+    try {
+      AppRegistry.registerHeadlessTask('ReactNativeFirebaseMessagingHeadlessTask', () => {
+        return async (remoteMessage) => {
+          console.log('📦 [HeadlessTask] 백그라운드 푸시 태스크 정상 응답 완료', remoteMessage);
+          return Promise.resolve();
+        };
+      });
+    } catch (e) {
+      console.log('💡 HeadlessTask가 이미 등록되어 있어 생략합니다.');
+    }
+  }
+}
+// ==================================================================================================================================================
+
+
 export const unstable_settings = {
   anchor: "(tabs)",
 };
@@ -62,8 +87,7 @@ export default function RootLayout() {
       }
 
       try {
-
-        const projectId=
+        const projectId =
           Constants.expoConfig?.extra?.eas?.projectId ??
           Constants.easConfig?.projectId;
 
@@ -84,7 +108,7 @@ export default function RootLayout() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fcm_token: token.data })
-         })
+         });
 
       } catch (error) {
         console.error("🚨 푸시 토큰 발급 중 에러 발생:", error);
