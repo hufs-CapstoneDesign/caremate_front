@@ -58,7 +58,8 @@ export default function PatientConnectCodeScreen() {
 
         if (access_token) {
           // 암호화된 보안 저장소(SecureStore)에 각각의 정보 저장
-          await SecureStore.setItemAsync("userToken", access_token);
+          await SecureStore.setItemAsync("userRole", "PATIENT");
+          await SecureStore.setItemAsync("patientToken", access_token);
           
           if (user_id) await SecureStore.setItemAsync("userId", user_id);
           if (role) await SecureStore.setItemAsync("userRole", role);

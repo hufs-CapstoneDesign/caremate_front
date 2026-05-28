@@ -11,28 +11,58 @@ import {
 } from "react-native";
 // 벡터 아이콘 사용을 위해 추가
 import { Heart } from 'lucide-react-native';
-// 🌟 안전한 로컬 저장소를 위해 expo-secure-store 임포트
+// 안전한 로컬 저장소를 위해 expo-secure-store 임포트
 import * as SecureStore from "expo-secure-store";
+// 🌟 우리가 만든 공통 API 함수 임포트!
+import { requestWithToken } from '../services/api';
 
 export default function StartScreen() {
 
-  // 🌟 환자 앱 시작 버튼 클릭 시 분기 처리 함수
+  // 🌟 보호자 앱 시작 버튼 클릭 시
+  const handleCaregiverStart = async () => {
+    try {
+      const role = await SecureStore.getItemAsync("userRole");
+      const token = await SecureStore.getItemAsync("guardianToken");
+
+      if (role === "GUARDIAN" && token) {
+        // 🌟 [api.js 사용] 서버에 토큰이 진짜 유효한지 검증 요청을 보냅니다.
+        // 엔드포인트("auth/validate")는 백엔드 설계에 맞게 수정하세요.
+        const response = await requestWithToken("auth/validate", {});
+
+        if (response.isValid) { // 서버가 유효하다고 응답하면
+          router.push("/caregiver_main");
+          return;
+        }
+      }
+      
+      // 토큰이 없거나 유효하지 않다면 메인 화면(또는 로그인 화면)으로 이동
+      router.push("/caregiver_main"); 
+    } catch (error) {
+      console.error("보호자 토큰 검증 실패:", error);
+      router.push("/caregiver_main");
+    }
+  };
+
+  // 🌟 환자 앱 시작 버튼 클릭 시
   const handlePatientStart = async () => {
     try {
-      // 1. 기기 내부 금고에서 기존에 저장된 인증 토큰이 있는지 조회합니다.
-      const token = await SecureStore.getItemAsync("userToken");
       const role = await SecureStore.getItemAsync("userRole");
+      const token = await SecureStore.getItemAsync("patientToken");
 
-      // 2. 토큰이 존재하고 역할이 환자('patient')로 등록되어 있다면 자동 로그인 처리
-      if ( && role === "patient") {
-        router.push("/patient_main");
-      } else {
-        // 3. 인증 토큰이 없다면 연동 절차를 밟아야 하므로 코드 입력창으로 이동
-        router.push("/patient_connect_code");
+      if (role === "PATIENT" && token) {
+        // 🌟 [api.js 사용] 서버에 토큰이 진짜 유효한지 검증 요청을 보냅니다.
+        const response = await requestWithToken("auth/validate", {});
+
+        if (response.isValid) { // 서버가 유효하다고 응답하면
+          router.push("/patient_main");
+          return;
+        }
       }
+      
+      // 토큰이 없거나 유효하지 않다면 연동 코드 입력창으로 이동
+      router.push("/patient_connect_code");
     } catch (error) {
-      console.error("인증 토큰 조회 실패:", error);
-      // 예외 발생 시 안전하게 코드 입력 화면으로 안내합니다.
+      console.error("환자 토큰 검증 실패:", error);
       router.push("/patient_connect_code");
     }
   };
@@ -42,7 +72,6 @@ export default function StartScreen() {
       <StatusBar barStyle="dark-content" />
 
       <View style={styles.logoSection}>
-        {/* 뇌 이모지 대신 세련된 벡터 아이콘으로 교체 */}
         <View style={styles.logoBox}>
           <Heart size={50} color="#4A90E2" fill="#4A90E2" fillOpacity={0.2} />
         </View>
@@ -60,7 +89,7 @@ export default function StartScreen() {
       <View style={styles.buttonSection}>
         <TouchableOpacity 
           style={styles.loginCard} 
-          onPress={() => router.push("/caregiver_main")}
+          onPress={handleCaregiverStart}
         >
           <View style={[styles.iconBox, { backgroundColor: "#EBF5FF" }]}>
             <Text style={styles.icon}>🛡️</Text>
@@ -74,7 +103,7 @@ export default function StartScreen() {
 
         <TouchableOpacity 
           style={styles.loginCard} 
-          onPress={handlePatientStart} // 🌟 분기 처리 함수 적용
+          onPress={handlePatientStart} 
         >
           <View style={[styles.iconBox, { backgroundColor: "#E8F5E9" }]}>
             <Text style={styles.icon}>👵</Text>
