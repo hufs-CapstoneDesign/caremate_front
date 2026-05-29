@@ -99,7 +99,18 @@ export default function RootLayout() {
         }
 
         const token = await Notifications.getDevicePushTokenAsync();
-        console.log("🎫 디바이스 푸시 토큰(FCM):", token.data);
+        
+        console.log("==========================================");
+        console.log("🎫 발급 완료된 고유 디바이스 푸시 토큰(FCM):");
+        console.log(token.data);
+        console.log("==========================================");
+
+        // 🌟 이 위치에서 나중에 백엔드로 토큰을 보내는 API를 호출하시면 됩니다.
+        await fetch(`http://${process.env.EXPO_PUBLIC_API_URL}/auth/fcm-token`, { 
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fcm_token: token.data })
+         });
 
         await fetch(`${process.env.EXPO_PUBLIC_API_URL}/auth/fcm-token`, {
           method: "POST",
