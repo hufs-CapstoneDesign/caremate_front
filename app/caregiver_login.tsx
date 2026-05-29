@@ -19,14 +19,14 @@ import { ShieldCheck, Lock, Mail } from 'lucide-react-native';
 import * as SecureStore from "expo-secure-store";
 
 export default function CaregiverLoginScreen() {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // 🌟 보호자 로그인 처리 함수
+  // 보호자 로그인 처리 함수
   const handleLogin = async () => {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert("알림", "이메일과 비밀번호를 모두 입력해 주세요.");
+    if (!username.trim() || !password.trim()) {
+      Alert.alert("알림", "사용자 이름과 비밀번호를 모두 입력해 주세요.");
       return;
     }
 
@@ -38,112 +38,110 @@ export default function CaregiverLoginScreen() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       });
 
       const result = await response.json();
 
-      // 🌟 [수정 반영] 백엔드 규격에 맞춰 result.access_token 구조로 변경
-      if (response.ok && result.access_token) {
-        
-        // 1. 금고(SecureStore)에 앞으로 공통 api가 읽어갈 역할(Role) 저장
-        await SecureStore.setItemAsync("userRole", "GUARDIAN");
-        
-        // 2. 전달받은 진짜 'access_token' 알갱이를 guardianToken 키로 저장
-        await SecureStore.setItemAsync("guardianToken", result.access_token);
+      if (response.ok) {
+        console.log("백엔드 응답 전체 데이터:", result);
 
-        // 3. 보호자 메인 화면으로 이동
-        router.replace("/caregiver_main");
+        const tokenToSave = result.access_token || result.accessToken || result.token;
+
+        if (tokenToSave) {
+          await SecureStore.setItemAsync("userToken", String(tokenToSave));
+          Alert.alert("성공", "로그인되었습니다.");
+          router.replace("/caregiver_main"); // 메인 화면으로 이동
+        } else {
+          Alert.alert("로그인 실패", "서버로부터 인증 토큰을 받지 못했습니다. 변수명을 확인해주세요.");
+          console.error("토큰을 찾을 수 없습니다. result 객체 구조:", result);
+        }
       } else {
-        Alert.alert("로그인 실패", result.message || "이메일 또는 비밀번호가 일치하지 않습니다.");
+        Alert.alert("로그인 실패", result.message || "정보를 다시 확인해 주세요.");
       }
     } catch (error) {
-      console.error("보호자 로그인 중 에러 발생:", error);
-      Alert.alert("오류", "서버와의 연결이 원활하지 않습니다. 네트워크를 확인해 주세요.");
+      console.error(error);
+      Alert.alert("에러", "네트워크 리퀘스트 타임아웃 또는 서버 연결 실패");
     } finally {
       setIsLoading(false);
     }
   };
 
+  // UI 렌더링 영역 (정확히 함수 내부에 위치)
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.innerContainer}>
-            
-            <View style={styles.logoSection}>
-              <View style={styles.logoBox}>
-                <ShieldCheck size={50} color="#4A90E2" fill="#4A90E2" fillOpacity={0.2} />
-              </View>
-              <Text style={styles.title}>보호자 로그인</Text>
-              <Text style={styles.subtitle}>어르신의 안전한 일상을 관리합니다</Text>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.innerContainer}
+        >
+          {/* 상단 타이틀 */}
+          <View style={styles.headerSection}>
+            <View style={styles.logoContainer}>
+              <ShieldCheck size={40} color="#FFFFFF" />
             </View>
-
-            <View style={styles.formSection}>
-              <View style={styles.inputContainer}>
-                <View style={styles.iconWrapper}>
-                  <Mail size={20} color="#8E9AA7" />
-                </View>
-                <TextInput
-                  style={styles.input}
-                  placeholder="이메일 주소 입력"
-                  placeholderTextColor="#CDD4DB"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  value={email}
-                  onChangeText={setEmail}
-                />
-              </View>
-
-              <View style={styles.inputContainer}>
-                <View style={styles.iconWrapper}>
-                  <Lock size={20} color="#8E9AA7" />
-                </View>
-                <TextInput
-                  style={styles.input}
-                  placeholder="비밀번호 입력"
-                  placeholderTextColor="#CDD4DB"
-                  secureTextEntry
-                  autoCapitalize="none"
-                  value={password}
-                  onChangeText={setPassword}
-                />
-              </View>
-            </View>
-
-            <View style={styles.buttonSection}>
-              <TouchableOpacity 
-                style={[styles.loginButton, isLoading && styles.disabledButton]} 
-                onPress={handleLogin}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.loginButtonText}>로그인하기</Text>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={styles.backButton} 
-                onPress={() => router.back()}
-              >
-                <Text style={styles.backButtonText}>이전 화면으로</Text>
-              </TouchableOpacity>
-            </View>
-
+            <Text style={styles.title}>돌봄 파트너 로그인</Text>
+            <Text style={styles.subtitle}>Caregiver Authentication</Text>
           </View>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
+
+          {/* 입력 폼 */}
+          <View style={styles.formSection}>
+            {/* 사용자 이름(Username) 입력란 */}
+            <View style={styles.inputContainer}>
+              <View style={styles.iconWrapper}>
+                <Mail size={22} color="#A0A5B5" />
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="사용자 이름을 입력하세요"
+                placeholderTextColor="#A0A5B5"
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+
+            {/* 비밀번호 입력란 */}
+            <View style={styles.inputContainer}>
+              <View style={styles.iconWrapper}>
+                <Lock size={22} color="#A0A5B5" />
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="비밀번호를 입력하세요"
+                placeholderTextColor="#A0A5B5"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+          </View>
+
+          {/* 버튼 섹션 */}
+          <View style={styles.buttonSection}>
+            <TouchableOpacity
+              style={[styles.loginButton, isLoading && styles.disabledButton]}
+              onPress={handleLogin}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.loginButtonText}>로그인하기</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
-}
+} // 👈 컴포넌트 함수가 여기서 완벽하게 닫힙니다.
 
+// 스타일시트 정의 (단 한 번만 깔끔하게 선언)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -151,27 +149,26 @@ const styles = StyleSheet.create({
   },
   innerContainer: {
     flex: 1,
-    justifyContent: "space-between",
     paddingHorizontal: 24,
-    paddingVertical: 40,
-  },
-  logoSection: {
-    alignItems: "center",
-    marginTop: 40,
-  },
-  logoBox: {
-    width: 100,
-    height: 100,
-    borderRadius: 30,
-    backgroundColor: "#FFFFFF",
     justifyContent: "center",
+  },
+  headerSection: {
     alignItems: "center",
     marginBottom: 20,
+  },
+  logoContainer: {
+    width: 70,
+    height: 70,
+    borderRadius: 24,
+    backgroundColor: "#4A90E2",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+    shadowColor: "#4A90E2",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
     elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
   },
   title: {
     fontSize: 28,
@@ -218,33 +215,23 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   loginButton: {
-    backgroundColor: "#4A90E2",
-    borderRadius: 24,
+    backgroundColor: "#1A1C1E",
+    borderRadius: 20,
     height: 60,
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: "#1A1C1E",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
     elevation: 3,
-    shadowColor: "#4A90E2",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
   },
   disabledButton: {
-    backgroundColor: "#A5C8F3",
+    opacity: 0.7,
   },
   loginButtonText: {
     color: "#FFFFFF",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
-  },
-  backButton: {
-    height: 50,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  backButtonText: {
-    color: "#8E9AA7",
-    fontSize: 15,
-    fontWeight: "600",
   },
 });
