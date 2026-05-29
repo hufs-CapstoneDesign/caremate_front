@@ -33,29 +33,6 @@ interface ChatDataResponse {
 
 const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5";
 
-// ⭕ 요청하신 새로운 API 응답 포맷에 완벽히 맞춘 더미(Fallback) 데이터 구조
-const DUMMY_RESPONSE: ChatDataResponse = {
-  chat_date: "2026-05-23",
-  sessions: [
-    {
-      session_id: "session_01",
-      session_time: "오전 10:02",
-      messages: [
-        { id: 'msg_01', sender: 'ai', time: '오전 10:02', text: '안녕하세요, 순자 어르신! 오늘 아침 식사는 맛있게 하셨나요?' },
-        { id: 'msg_02', sender: 'patient', time: '오전 10:03', text: '응, 대충 물에 밥 말아서 김치랑 먹었어.' },
-        { id: 'msg_03', sender: 'ai', time: '오전 10:03', text: '아침 약도 잊지 않고 챙겨 드셨을까요?' }
-      ]
-    },
-    {
-      session_id: "session_02",
-      session_time: "오후 02:15",
-      messages: [
-        { id: 'msg_04', sender: 'ai', time: '오후 02:15', text: '순자 어르신, 점심 식사 후 가벼운 산책은 다녀오셨나요?' }
-      ]
-    }
-  ]
-};
-
 export default function CaregiverChat() {
   const patient_id = PATIENT_ID;
   const [chatData, setChatData] = useState<ChatDataResponse | null>(null);
@@ -78,12 +55,14 @@ export default function CaregiverChat() {
           setChatData(data);
           setActiveSessionIndex(0); 
         } else {
-          setChatData(DUMMY_RESPONSE);
+          // 🌟 [수정] 통화 데이터가 없는 상태(404 등)일 때 더미 데이터 대신 null 처리
+          setChatData(null);
           setActiveSessionIndex(0);
         }
       } catch (error) {
         console.error("⚠️ 대화 원본 로딩 실패:", error);
-        setChatData(DUMMY_RESPONSE);
+        // 🌟 [수정] 네트워크 에러 등 실패 시에도 더미 데이터 완전 제거
+        setChatData(null);
         setActiveSessionIndex(0);
       } finally {
         setIsLoading(false);
@@ -93,8 +72,13 @@ export default function CaregiverChat() {
     fetchChatHistory();
   }, [patient_id, selectedDate]);
 
-  const currentMessages = chatData?.sessions?.[activeSessionIndex]?.messages || [];
-  const currentSessionTitle = chatData?.sessions?.[activeSessionIndex]?.session_time || "통화 기록 선택";
+  const hasSessions = chatData?.sessions && chatData.sessions.length > 0;
+  const currentMessages = hasSessions ? chatData?.sessions?.[activeSessionIndex]?.messages || [] : [];
+  
+  // 🌟 [수정] 세션이 없을 때 상단 바에 표시될 텍스트 방어 코드
+  const currentSessionTitle = hasSessions 
+    ? chatData?.sessions?.[activeSessionIndex]?.session_time || "통화 기록 선택"
+    : "통화 기록 없음";
 
   const renderChatItem = ({ item }: { item: MessageItem }) => {
     const isAI = item.sender === 'ai';
@@ -161,22 +145,28 @@ export default function CaregiverChat() {
             <DropdownHeader>
               <DropdownHeaderTitle>확인할 통화 선택</DropdownHeaderTitle>
             </DropdownHeader>
-            {chatData?.sessions?.map((session, index) => {
-              const isSelected = index === activeSessionIndex;
-              return (
-                <DropdownItem 
-                  key={session.session_id} 
-                  isSelected={isSelected}
-                  onPress={() => {
-                    setActiveSessionIndex(index);
-                    setDropdownVisible(false);
-                  }}
-                >
-                  <DropdownItemText isSelected={isSelected}>{session.session_time}</DropdownItemText>
-                  {isSelected && <Check size={16} color="#4A90E2" />}
-                </DropdownItem>
-              );
-            })}
+            
+            {/* 🌟 [수정] 통화 기록(세션)이 없을 때 표시할 모달 내 텍스트 컴포넌트 추가 */}
+            {!hasSessions ? (
+              <EmptyDropdownText>확인할 수 있는 통화 기록이 없습니다.</EmptyDropdownText>
+            ) : (
+              chatData?.sessions?.map((session, index) => {
+                const isSelected = index === activeSessionIndex;
+                return (
+                  <DropdownItem 
+                    key={session.session_id} 
+                    isSelected={isSelected}
+                    onPress={() => {
+                      setActiveSessionIndex(index);
+                      setDropdownVisible(false);
+                    }}
+                  >
+                    <DropdownItemText isSelected={isSelected}>{session.session_time}</DropdownItemText>
+                    {isSelected && <Check size={16} color="#4A90E2" />}
+                  </DropdownItem>
+                );
+              })
+            )}
           </DropdownSheetContainer>
         </TouchableOpacity>
       </Modal>
@@ -194,6 +184,7 @@ export default function CaregiverChat() {
           contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
+            // 🌟 [수정] 데이터가 비었을 때 출력될 UI
             <EmptyView>
               <EmptyText>해당 날짜의 통화 기록이 없습니다.</EmptyText>
             </EmptyView>
@@ -276,3 +267,11 @@ const ChatText = styled.Text<{ isAI: boolean }>` font-size: 14px; line-height: 2
 const TimeText = styled.Text` font-size: 10px; color: #999; margin-left: 6px; margin-right: 6px; margin-bottom: 2px; `;
 const EmptyView = styled.View` flex: 1; align-items: center; justify-content: center; padding-top: 100px; `;
 const EmptyText = styled.Text` font-size: 14px; color: #999; `;
+
+// 🌟 [추정 추가] 드롭다운 전용 비어있음 스타일 컴포넌트
+const EmptyDropdownText = styled.Text`
+  font-size: 14px;
+  color: #999;
+  text-align: center;
+  padding: 24px 0;
+`;
