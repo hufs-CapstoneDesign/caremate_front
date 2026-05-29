@@ -158,7 +158,7 @@ const GuardianAISetting = () => {
       await axios.patch(`http://${process.env.EXPO_PUBLIC_API_URL}/schedules/${PATIENT_ID}`, payload);
       
       Alert.alert('성공', 'AI 안부 전화 설정이 수정되었습니다.', [
-        { text: '확인', onPress: () => router.push("/caregiver_main") }
+        { text: '확인', onPress: () => router.back() }
       ]);
     } catch (error) {
       console.error("설정 저장 실패:", error);
