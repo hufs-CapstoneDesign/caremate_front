@@ -137,19 +137,11 @@ const GuardianAISetting = () => {
     }
 
     const payload = {
-<<<<<<< HEAD
-      aiCallEnabled: isEnabled,
-      schedules: isEnabled ? schedules.map(item => ({
-        schedule_id: item.id.startsWith('new_') ? null : item.id,
-        dayOfWeek: days.indexOf(item.day), // '월' -> 0, '화' -> 1, ..., '일' -> 6
-        time: formatBackendTime(item.time)
-=======
       ai_call_enabled: isEnabled,
       schedule_list: isEnabled ? schedules.map(item => ({
         // 기존에 발급받았던 ID가 있으면 유지하고, 신규 데이터면 보낼 때 제외하거나 임시 처리 가능
         day_of_week: days.indexOf(item.day), // 백엔드 확장 필드 명칭에 맞춰 전송
         call_time: formatBackendTime(item.time)
->>>>>>> 30e48c6db13024f7dfa65bfd67eedaade493f63a
       })) : []
     };
 
