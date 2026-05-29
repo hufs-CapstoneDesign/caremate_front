@@ -1,9 +1,9 @@
 import { router } from "expo-router";
-import { Bell, Calendar, User, Phone, Plus } from 'lucide-react-native';
+import { Bell, Calendar, User, LogOut, Phone, Plus } from 'lucide-react-native';
 import React, { useState } from 'react'; // 🌟 API 상태 관리를 위한 useState 추가
 import { TouchableOpacity, View, ScrollView, Alert, ActivityIndicator } from 'react-native'; // 🌟 인디케이터, 알럿 추가
 import styled from 'styled-components/native';
-
+import * as SecureStore from "expo-secure-store";
 // --- 백엔드 연결을 위한 설정 ---
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5"; 
@@ -20,7 +20,30 @@ interface StyleProps {
 const GuardianMain = () => {
   // 🌟 통화 요청 중복 탭 방지 및 로딩 표시용 상태
   const [isCalling, setIsCalling] = useState(false);
-
+// 🌟 이 로그아웃 처리 함수를 그대로 복사해서 넣어주세요!
+  const handleLogout = () => {
+    Alert.alert(
+      "로그아웃",
+      "정말 로그아웃 하시겠습니까?",
+      [
+        { text: "취소", style: "cancel" },
+        {
+          text: "확인",
+          onPress: async () => {
+            try {
+              // 로컬에 저장된 토큰 삭제
+              await SecureStore.deleteItemAsync("userToken");
+              // 시작 화면(인덱스)으로 튕겨내기
+              router.replace("/");
+            } catch (error) {
+              console.error("로그아웃 실패:", error);
+              Alert.alert("에러", "로그아웃 처리에 실패했습니다.");
+            }
+          }
+        }
+      ]
+    );
+  };
   // 🌟 [전화 걸기] 메뉴를 탭했을 때 백엔드로 FCM 발송 중계를 요청하는 함수
   const handleRequestCall = async () => {
     if (isCalling) return;
@@ -67,6 +90,9 @@ const GuardianMain = () => {
           </TouchableOpacity>
           <TouchableOpacity activeOpacity={0.7} style={{ marginLeft: 20 }}>
             <User color="#333" size={30} />
+          </TouchableOpacity>
+          <TouchableOpacity activeOpacity={0.7} style={{ marginLeft: 20 }} onPress={handleLogout}>
+            <LogOut color="#333" size={30} />
           </TouchableOpacity>
         </IconGroup>
       </Header>

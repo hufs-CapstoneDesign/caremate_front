@@ -66,12 +66,12 @@ export default function StartScreen() {
           <View style={styles.logoContainer}>
             <Heart size={44} color="#FFF" />
           </View>
-          <Text style={styles.title}>마음연결</Text>
-          <Text style={styles.subtitle}>AI 실버 케어 서비스</Text>
+          <Text style={styles.title}>Caremate</Text>
+          <Text style={styles.subtitle}>AI 어르신 케어 서비스</Text>
           <View style={styles.descriptionBox}>
             <Text style={styles.description}>
               인공지능 기술을 통해 어르신의 안부를 묻고{"\n"}
-              보호자에게 소중한 일상을 실시간으로 전달합니다.
+              보호자에게 소중한 일상을 일일 리포트로 전달합니다.
             </Text>
           </View>
         </View>
@@ -84,7 +84,7 @@ export default function StartScreen() {
               <Text style={styles.badgeText}>보호자</Text>
             </View>
             <View style={styles.cardTextContent}>
-              <Text style={styles.cardTitle}>돌봄 파트너 시작하기</Text>
+              <Text style={styles.cardTitle}>보호자 시작하기</Text>
               <Text style={styles.cardSubtitle}>어르신 상태 모니터링 및 AI 레포트 조회</Text>
             </View>
           </TouchableOpacity>
@@ -95,8 +95,8 @@ export default function StartScreen() {
               <Text style={styles.badgeText}>어르신</Text>
             </View>
             <View style={styles.cardTextContent}>
-              <Text style={styles.cardTitle}>시니어 모드 시작하기</Text>
-              <Text style={styles.cardSubtitle}>말벗 AI 통화 및 긴급 호출 서비스 이용</Text>
+              <Text style={styles.cardTitle}>어르신 모드 시작하기</Text>
+              <Text style={styles.cardSubtitle}>AI와 대화를 통해 일상 전달</Text>
             </View>
           </TouchableOpacity>
         </View>
