@@ -10,12 +10,15 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
+import * as SecureStore from "expo-secure-store";
 
 export default function PatientConnectCodeScreen() {
   const [code, setCode] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const trimmedCode = code.trim();
 
     if (!trimmedCode) {
@@ -23,11 +26,62 @@ export default function PatientConnectCodeScreen() {
       return;
     }
 
-    console.log("입력한 연결 코드:", trimmedCode);
+    setIsLoading(true);
 
-    // TODO: API 연결 예정
-    // 성공 시:
-    // router.replace("/patient_main");
+    try {
+      const response = await fetch(`http://${process.env.EXPO_PUBLIC_API_URL}/auth/login-with-code`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          patient_code: trimmedCode,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.status === 200) {
+        const { access_token, user_id, role, name } = data;
+
+        // 🌟 [로그 출력 시작] 백엔드에서 받은 응답 데이터를 터미널에 예쁘게 찍어줍니다.
+        console.log("==========================================");
+        console.log("📥 [백엔드 응답] 로그인 성공 데이터 수신");
+        console.log("------------------------------------------");
+        console.log(`👤 이름(name)     : ${name}`);
+        console.log(`🔑 유저ID(user_id) : ${user_id}`);
+        console.log(`🎖️ 역할(role)     : ${role}`);
+        console.log(`🎫 토큰 타입      : ${data.token_type}`);
+        console.log(`🔒 JWT 토큰       : ${access_token ? `${access_token.substring(0, 15)}...[생략]...` : "없음"}`);
+        console.log("==========================================");
+        // 🌟 [로그 출력 끝]
+
+        if (access_token) {
+          // 암호화된 보안 저장소(SecureStore)에 각각의 정보 저장
+          await SecureStore.setItemAsync("userRole", "PATIENT");
+          await SecureStore.setItemAsync("patientToken", access_token);
+          
+          if (user_id) await SecureStore.setItemAsync("userId", user_id);
+          if (role) await SecureStore.setItemAsync("userRole", role);
+          if (name) await SecureStore.setItemAsync("userName", name);
+
+          console.log("💾 스마트폰 SecureStore에 모든 데이터 저장 완료.");
+
+          // 성공 시 메인 화면으로 이동
+          router.replace("/patient_main");
+        } else {
+          Alert.alert("오류", "서버 응답 형식이 올바르지 않습니다.");
+        }
+      } else {
+        const errorMessage = data.detail || "연결에 실패했습니다. 코드를 다시 확인해 주세요.";
+        Alert.alert("인증 실패", errorMessage);
+      }
+    } catch (error) {
+      console.error("🚨 환자 로그인 API 요청 중 에러 발생:", error);
+      Alert.alert("네트워크 오류", "서버와 통신할 수 없습니다. 네트워크 상태를 확인해 주세요.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -35,7 +89,11 @@ export default function PatientConnectCodeScreen() {
       <StatusBar barStyle="dark-content" />
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity 
+          onPress={() => router.back()} 
+          style={styles.backButton}
+          disabled={isLoading}
+        >
           <Ionicons name="chevron-back" size={26} color="#1A1C1E" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>보호자 연결</Text>
@@ -61,14 +119,22 @@ export default function PatientConnectCodeScreen() {
           value={code}
           onChangeText={setCode}
           autoCapitalize="characters"
+          editable={!isLoading}
         />
 
         <TouchableOpacity
-          style={[styles.submitButton, !code.trim() && styles.disabledButton]}
+          style={[
+            styles.submitButton, 
+            (!code.trim() || isLoading) && styles.disabledButton
+          ]}
           onPress={handleSubmit}
-          disabled={!code.trim()}
+          disabled={!code.trim() || isLoading}
         >
-          <Text style={styles.submitText}>연결하기</Text>
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={styles.submitText}>연결하기</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>

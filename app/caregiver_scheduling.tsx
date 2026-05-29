@@ -137,21 +137,31 @@ const GuardianAISetting = () => {
     }
 
     const payload = {
+<<<<<<< HEAD
       aiCallEnabled: isEnabled,
       schedules: isEnabled ? schedules.map(item => ({
         schedule_id: item.id.startsWith('new_') ? null : item.id,
         dayOfWeek: days.indexOf(item.day), // '월' -> 0, '화' -> 1, ..., '일' -> 6
         time: formatBackendTime(item.time)
+=======
+      ai_call_enabled: isEnabled,
+      schedule_list: isEnabled ? schedules.map(item => ({
+        // 기존에 발급받았던 ID가 있으면 유지하고, 신규 데이터면 보낼 때 제외하거나 임시 처리 가능
+        day_of_week: days.indexOf(item.day), // 백엔드 확장 필드 명칭에 맞춰 전송
+        call_time: formatBackendTime(item.time)
+>>>>>>> 30e48c6db13024f7dfa65bfd67eedaade493f63a
       })) : []
     };
 
     try {
+      // 기존 명세서 기반 저장 API 통신 (POST 또는 PUT 프로젝트 규칙에 따라 사용)
       await axios.patch(`http://${process.env.EXPO_PUBLIC_API_URL}/schedules/${PATIENT_ID}`, payload);
+      
       Alert.alert('성공', 'AI 안부 전화 설정이 수정되었습니다.', [
         { text: '확인', onPress: () => router.push("/caregiver_main") }
       ]);
     } catch (error) {
-      console.log("설정 저장 실패:", error);
+      console.error("설정 저장 실패:", error);
       Alert.alert('오류', '설정 저장 중 문제가 발생했습니다.');
     }
   };
