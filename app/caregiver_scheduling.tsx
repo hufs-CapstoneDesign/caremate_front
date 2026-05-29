@@ -5,7 +5,7 @@ import { Calendar, ChevronLeft, Clock, Phone, X, Plus } from 'lucide-react-nativ
 import styled from 'styled-components/native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import axios from 'axios';
-
+import { requestWithToken } from '../services/api';
 const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5";
 
 // --- 타입 정의 ---
@@ -147,7 +147,7 @@ const GuardianAISetting = () => {
 
     try {
       // 기존 명세서 기반 저장 API 통신 (POST 또는 PUT 프로젝트 규칙에 따라 사용)
-      await axios.patch(`http://${process.env.EXPO_PUBLIC_API_URL}/schedules/${PATIENT_ID}`, payload);
+      const response = await requestWithToken(`schedules/${PATIENT_ID}`, payload, "PATCH");
       
       Alert.alert('성공', 'AI 안부 전화 설정이 수정되었습니다.', [
         { text: '확인', onPress: () => router.back() }

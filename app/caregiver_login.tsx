@@ -49,7 +49,8 @@ export default function CaregiverLoginScreen() {
         const tokenToSave = result.access_token || result.accessToken || result.token;
 
         if (tokenToSave) {
-          await SecureStore.setItemAsync("userToken", String(tokenToSave));
+          await SecureStore.setItemAsync("guardianToken", String(tokenToSave));
+          await SecureStore.setItemAsync("userRole", "GUARDIAN");
           Alert.alert("성공", "로그인되었습니다.");
           router.replace("/caregiver_main"); // 메인 화면으로 이동
         } else {
