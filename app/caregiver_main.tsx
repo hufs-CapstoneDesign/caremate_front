@@ -86,6 +86,9 @@ const GuardianMain = () => {
           <TouchableOpacity activeOpacity={0.7} style={{ marginLeft: 20 }}>
             <User color="#333" size={30} />
           </TouchableOpacity>
+          <TouchableOpacity activeOpacity={0.7} style={{ marginLeft: 20 }} onPress={handleLogout}>
+            <LogOut color="#333" size={30} />
+          </TouchableOpacity>
         </IconGroup>
       </Header>
 
