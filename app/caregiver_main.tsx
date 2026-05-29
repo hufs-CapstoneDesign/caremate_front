@@ -1,9 +1,10 @@
 import { router } from "expo-router";
 import { Bell, Calendar, User, Phone, Plus } from 'lucide-react-native';
-import React, { useState } from 'react'; // 🌟 API 상태 관리를 위한 useState 추가
+import React, { useState, useEffect } from 'react'; // 🌟 API 상태 관리를 위한 useState 추가
 import { TouchableOpacity, View, ScrollView, Alert, ActivityIndicator } from 'react-native'; // 🌟 인디케이터, 알럿 추가
 import styled from 'styled-components/native';
-
+import * as SecureStore from "expo-secure-store"; // 🌟 토큰 조회를 위해 추가
+import { registerAndSendFcmToken } from "../utils/fcm"; // 🌟 공통 FCM 함수 추가 (경로 확인 필요)
 // --- 백엔드 연결을 위한 설정 ---
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5"; 
@@ -20,6 +21,23 @@ interface StyleProps {
 const GuardianMain = () => {
   // 🌟 통화 요청 중복 탭 방지 및 로딩 표시용 상태
   const [isCalling, setIsCalling] = useState(false);
+
+  useEffect(() => {
+    const syncFcmToken = async () => {
+      try {
+        const token = await SecureStore.getItemAsync("userToken");
+        if (token) {
+          // 앱 진입 시 FCM 토큰을 백엔드와 동기화 (유저타입 "CAREGIVER" 전달)
+          await registerAndSendFcmToken(token, "CAREGIVER");
+          console.log("보호자 FCM 토큰 동기화 완료");
+        }
+      } catch (error) {
+        console.error("FCM 토큰 동기화 중 오류 발생:", error);
+      }
+    };
+
+    syncFcmToken();
+  }, []);
 
   // 🌟 [전화 걸기] 메뉴를 탭했을 때 백엔드로 FCM 발송 중계를 요청하는 함수
   const handleRequestCall = async () => {
