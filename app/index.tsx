@@ -9,41 +9,43 @@ import {
   SafeAreaView,
   Alert,
 } from "react-native";
-// 벡터 아이콘 사용을 위해 추가
 import { Heart } from 'lucide-react-native';
-// 안전한 로컬 저장소를 위해 expo-secure-store 임포트
 import * as SecureStore from "expo-secure-store";
+// 🌟 이미 만들어두신 fcm 모듈 임포트 (경로는 프로젝트 구조에 맞게 살짝 조절 가능)
+import { registerAndSendFcmToken } from "../utils/fcm"; 
 
 export default function StartScreen() {
 
-  // 🌟 앱이 켜질 때 자동 로그인 체크 (서버 검증 없이 로컬 토큰만 확인)
+  // 앱이 켜질 때 자동 로그인 체크
   useEffect(() => {
     const checkAutoLogin = async () => {
       try {
         const token = await SecureStore.getItemAsync("userToken");
-        // 로컬 저장소에 토큰이 존재하기만 하면 바로 메인 화면으로 이동
+        
+        // 🌟 로컬 저장소에 토큰이 존재할 때만 (자동 로그인) FCM 등록을 수행!
         if (token) {
+          // utils/fcm.ts 의 함수 호출시 유저타입 "CAREGIVER" 함께 전달
+          await registerAndSendFcmToken(token, "CAREGIVER");
           router.replace("/caregiver_main");
         }
       } catch (error) {
-        console.error("자동 로그인 체크 중 에러 발생:", error);
+        console.error("자동 로그인 체크 및 FCM 등록 중 에러 발생:", error);
       }
     };
 
     checkAutoLogin();
   }, []);
 
-  // 🌟 보호자 앱 시작 버튼 클릭 시
+  // 보호자 앱 시작 버튼 클릭 시
   const handleCaregiverStart = async () => {
     try {
-      // 서버 검증 단계를 생략하고, 로컬에 저장된 토큰이 있는지 바로 확인
       const token = await SecureStore.getItemAsync("userToken");
 
       if (token) {
-        // 토큰이 이미 있다면 로그인 단계를 건너뛰고 메인 화면으로 이동
+        // 🌟 로그인 기록이 이미 있다면 화면 진입 전 FCM 토큰 동기화
+        await registerAndSendFcmToken(token, "CAREGIVER");
         router.push("/caregiver_main");
       } else {
-        // 토큰이 없다면 로그인 화면으로 이동
         router.push("/caregiver_login");
       }
     } catch (error) {
@@ -52,8 +54,9 @@ export default function StartScreen() {
     }
   };
 
-  // 피보호자(어르신) 앱 시작 버튼 클릭 시 (기존 로직 유지)
+  // 피보호자(어르신) 앱 시작 버튼 클릭 시
   const handlePatientStart = () => {
+    // 환자 메인은 로그인이 없거나 고정 진입이므로, fcm 발급은 patient_main 화면 내부에서 처리하도록 유도합니다.
     router.push("/patient_main");
   };
 
@@ -105,7 +108,6 @@ export default function StartScreen() {
   );
 }
 
-// 🌟 UI 스타일시트 100% 동일하게 유지
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -149,7 +151,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   descriptionBox: {
-    backgroundColor: "rgba(74, 144, 226, 0.05)\",",
+    backgroundColor: "rgba(74, 144, 226, 0.05)",
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 15,
