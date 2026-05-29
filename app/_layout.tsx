@@ -80,7 +80,7 @@ export default function RootLayout() {
         console.log("==========================================");
 
         // 🌟 이 위치에서 나중에 백엔드로 토큰을 보내는 API를 호출하시면 됩니다.
-        await fetch(`${process.env.EXPO_PUBLIC_API_URL}/auth/fcm-token`, { 
+        await fetch(`http://${process.env.EXPO_PUBLIC_API_URL}/auth/fcm-token`, { 
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fcm_token: token.data })

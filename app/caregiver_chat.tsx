@@ -81,7 +81,7 @@ export default function CaregiverChat() {
       if (!patient_id || !selectedDate) return;
       setIsLoading(true);
       try {
-        const url = `http://172.30.1.16:8000/chats/${patient_id}/${selectedDate}`;
+        const url = `http://${process.env.EXPO_PUBLIC_API_URL}/chats/${patient_id}/${selectedDate}`;
         const response = await fetch(url);
         
         if (response.status === 200) {

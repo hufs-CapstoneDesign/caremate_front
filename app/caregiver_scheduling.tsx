@@ -140,7 +140,7 @@ const GuardianAISetting = () => {
       aiCallEnabled: isEnabled,
       schedules: isEnabled ? schedules.map(item => ({
         schedule_id: item.id.startsWith('new_') ? null : item.id,
-        dayOfWeek: days.indexOf(item.day),
+        dayOfWeek: days.indexOf(item.day), // '월' -> 0, '화' -> 1, ..., '일' -> 6
         time: formatBackendTime(item.time)
       })) : []
     };
@@ -151,6 +151,7 @@ const GuardianAISetting = () => {
         { text: '확인', onPress: () => router.push("/caregiver_main") }
       ]);
     } catch (error) {
+      console.log("설정 저장 실패:", error);
       Alert.alert('오류', '설정 저장 중 문제가 발생했습니다.');
     }
   };
