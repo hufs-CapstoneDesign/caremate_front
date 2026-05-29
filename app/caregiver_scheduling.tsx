@@ -61,32 +61,40 @@ const GuardianAISetting = () => {
     return date;
   };
 
-  useEffect(() => {
+useEffect(() => {
     const fetchExistingSchedules = async () => {
       try {
         setIsLoading(true);
-        const response = await axios.get(`http://${process.env.EXPO_PUBLIC_API_URL}/schedules/${PATIENT_ID}`);
+        const response = await requestWithToken(`schedules/${PATIENT_ID}`, {}, "GET");
         
-        if (response.data && response.data.schedules) {
-          const mappedSchedules = response.data.schedules.map((item: ApiResponseSchedule, index: number) => {
+        if (response && response.schedule_list) {
+          // 1. response.schedule_list를 바탕으로 백엔드 스펙 매핑
+          const mappedSchedules = response.schedule_list.map((item: any, index: number) => {
             return {
               id: item.schedule_id || `existing_${index}_${Date.now()}`,
-              day: item.dayOfWeek !== undefined ? days[item.dayOfWeek] : '월',
-              time: parseBackendTimeToDate(item.time)
+              day: item.day_of_week !== undefined ? days[item.day_of_week] : '월',
+              time: parseBackendTimeToDate(item.call_time)
             };
           });
 
-          const sortedSchedules = mappedSchedules.sort((a: ScheduleItem, b: ScheduleItem) => {
+          // 2. 요일 순서대로 정렬
+          const sortedSchedules = mappedSchedules.sort((a: any, b: any) => {
             return days.indexOf(a.day) - days.indexOf(b.day);
           });
-          
+
+          // 3. 🌟 화면 갱신 상태(State) 저장!
           setSchedules(sortedSchedules);
+        } else {
+          // schedule_list가 비어있거나 없을 때 예외 처리
+          setSchedules([]);
         }
       } catch (error) {
-        console.error("기존 스케줄 로딩 실패:", error);
-        // 🌟 [수정] API 에러가 나거나 데이터가 없어도 더미 데이터를 넣지 않고 빈 배열로 설정
+        // 백엔드 통신 실패나 401/500 에러 디버깅 로그
+        console.error("🚨 [스케줄 API 에러] 기존 스케줄 로딩 실패:", error);
+        // 에러가 나더라도 앱이 크래시되지 않도록 안전하게 빈 배열로 초기화
         setSchedules([]); 
       } finally {
+        // 로딩 애니메이션 인디케이터 해제
         setIsLoading(false);
       }
     };
