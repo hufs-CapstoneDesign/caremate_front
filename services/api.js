@@ -51,3 +51,70 @@ export async function requestWithToken(endpoint, payload = {}, method = "POST") 
     throw error;
   }
 }
+
+// services/api.js 하단에 추가할 기능별 함수들
+
+//auth
+
+/** 1. 보호자 로그인 */
+export async function loginGuardian(loginData) {
+  return await requestWithToken("auth/login", loginData);
+}
+
+/** 2. 환자 정보 입력 */
+export async function invitePatient(patientData) {
+  return await requestWithToken("auth/invite-patient", patientData);
+}
+
+/** 3. 환자 로그인 (코드입력) */
+export async function loginPatient(code) {
+  return await requestWithToken("auth/login-with-code", { code });
+}
+
+/** 4. FCM 토큰 보내기 */
+export async function sendFCMToken(token) {
+  return await requestWithToken("auth/fcm-token", { fcm_token: token }, "PATCH");
+}
+
+//calls
+
+/** 5. 통화 시작하기 */
+export async function startSession(callData) {
+  return await requestWithToken("calls", callData);
+}
+
+/** 6. 통화 종료하기 */
+export async function endSession(sessionId) {
+  return await requestWithToken(`calls/${sessionId}`, {});
+}
+
+//reports
+
+/** 7. 최근 30일 보고서 조회하기 */
+export async function fetchReport() {
+  return await requestWithToken(`reports`, {}, "GET");
+}
+
+/** 8. 특정 날짜 보고서 조회하기 */
+export async function fetchReportByDate(date) {
+  return await requestWithToken(`reports/${date}`, {}, "GET");
+}
+
+//schedules
+
+/** 9. 일정 조회하기 */
+export async function fetchSchedule(patientId) {
+  return await requestWithToken(`schedules/${patientId}`, {}, "GET");
+}
+
+/** 10. 일정 추가하기 */
+export async function addSchedule(patientId, scheduleData) {
+  return await requestWithToken(`schedules/${patientId}`, scheduleData, "PATCH");
+}
+
+//conversations
+
+/** 11. 대화 내용 조회하기 */
+export async function fetchConversation(date) {
+  return await requestWithToken(`conversations/${date}`, {}, "GET");
+}
