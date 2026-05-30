@@ -60,6 +60,7 @@ export default function PatientMain() {
               await SecureStore.deleteItemAsync("CONNECTED_PATIENT_ID");
               await SecureStore.deleteItemAsync("CONNECTED_PATIENT_NAME");
               await SecureStore.deleteItemAsync("userRole");
+              await SecureStore.deleteItemAsync("patientToken"); // ✅ 이거 추가
               
               Alert.alert("로그아웃", "정상적으로 로그아웃 되었습니다.");
               router.replace("/");

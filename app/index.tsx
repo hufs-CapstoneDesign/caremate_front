@@ -18,33 +18,9 @@ export default function StartScreen() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const checkAutoLogin = async () => {
-      try {
-        const caregiverToken = await SecureStore.getItemAsync("userToken");
-        const patientToken = await SecureStore.getItemAsync("patientToken");
-        const userRole = await SecureStore.getItemAsync("userRole");
-
-        console.log("🤖 [자동 로그인 검사] 역할군:", userRole, "| 보호자토큰:", !!caregiverToken, "| 환자토큰:", !!patientToken);
-
-        if (userRole === "CAREGIVER" && caregiverToken) {
-          router.replace("/caregiver_main");
-          // 외부 API인 FCM 등록은 화면이 넘어간 뒤 백그라운드에서 안전하게 실행
-          registerAndSendFcmToken(caregiverToken, "CAREGIVER").catch(e => console.error(e));
-          return;
-        } else if (userRole === "PATIENT" && patientToken) {
-          router.replace("/patient_main");
-          return;
-        }
-      } catch (error) {
-        console.error("자동 로그인 체크 중 치명적 에러 발생:", error);
-      } finally {
-        // 🌟 [교정] 절대로 오타 없이 정확하게 setIsLoading(false)만 호출합니다.
-        setIsLoading(false);
-      }
-    };
-
-    checkAutoLogin();
+    setIsLoading(false);
   }, []);
+
 
   // ⏳ 토큰 검사 중일 때 도는 로딩 스피너
   if (isLoading) {

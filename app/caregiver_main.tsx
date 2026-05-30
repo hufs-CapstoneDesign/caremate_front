@@ -184,7 +184,7 @@ const handleLogout = () => {
           <Title fontSize={26}>케어메이트 <TitleBlue>보호자</TitleBlue></Title>
         </GreetingSection>
         <IconGroup>
-          <TouchableOpacity activeOpacity={0.7} onPress={() => router.push("/")}>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => router.replace("/")}>
             <Bell color="#333" size={30} />
           </TouchableOpacity>
           <TouchableOpacity activeOpacity={0.7} style={{ marginLeft: 20 }}>

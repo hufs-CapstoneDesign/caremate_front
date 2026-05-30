@@ -13,10 +13,10 @@ const BASE_URL = `http://${process.env.EXPO_PUBLIC_API_URL}`; // 예: 'http://lo
 export async function requestWithToken(endpoint, payload = {}, method = "POST") {
   try {
     // 1. 현재 이 폰에 로그인된 주인이 누구인지 신분증 확인
-    const currentRole = await SecureStore.getItemAsync("userRole"); // "GUARDIAN" 또는 "PATIENT"
+    const currentRole = await SecureStore.getItemAsync("userRole"); // "CAREGIVER" 또는 "PATIENT"
 
     // 2. 신분에 맞는 금고 키(Key) 매칭 (수정하신 로그인 정보 그대로 바라봅니다)
-    const tokenKey = currentRole === "GUARDIAN" ? "guardianToken" : "patientToken";
+    const tokenKey = currentRole === "CAREGIVER" ? "userToken" : "patientToken";
 
     // 3. 진짜 토큰 알갱이 꺼내기
     const activeToken = await SecureStore.getItemAsync(tokenKey);
