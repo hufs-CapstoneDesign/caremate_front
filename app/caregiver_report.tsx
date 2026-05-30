@@ -14,6 +14,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Calendar as RNcalendar } from 'react-native-calendars';
 import { router } from "expo-router";
+import {fetchReport, fetchReportByDate} from "../services/api";
 
 // --- 타입 정의 ---
 interface ProgressProps {
@@ -68,32 +69,65 @@ export default function CaregiverReport() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCalendarVisible, setCalendarVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); 
+  const [markedDates, setMarkedDates] = useState<any>({});
 
   useEffect(() => {
-    const fetchReportDetail = async () => {
-      if (!patient_id || !selectedDate) return;
-      setIsLoading(true);
-      try {
-        const url = `http://${process.env.EXPO_PUBLIC_API_URL}/reports/${selectedDate}`;
-        const response = await fetch(url);
-        
-        if (response.status === 200) {
-          const data: ReportDetail = await response.json();
-          console.log("✅ [API 파싱 성공] 서버 데이터 원본:", JSON.stringify(data, null, 2));
-          setReportDetail(data);
-        } else {
-          setReportDetail(null);
-        }
-      } catch (error) {
-        console.error("⚠️ 상세 리포트 로딩 실패:", error);
-        setReportDetail(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const loadDots = async () => {
+    try {
+      const activeReports = await fetchReport(); // 🌟 7번 API 호출
+      const newMarks: any = {};
 
-    fetchReportDetail();
-  }, [patient_id, selectedDate]);
+      if (Array.isArray(activeReports)) {
+        activeReports.forEach((item: any) => {
+          if (item.report_date) {
+            // 해당 날짜에 파란 점(.marked) 추가
+            newMarks[item.report_date] = { marked: true, dotColor: '#3b82f6' };
+          }
+        });
+      }
+
+      // 현재 선택된 날짜 하이라이트 스타일도 함께 병합
+      newMarks[selectedDate] = {
+        ...newMarks[selectedDate],
+        selected: true,
+        selectedColor: '#3b82f6',
+      };
+
+      setMarkedDates(newMarks);
+    } catch (error) {
+      console.error("캘린더 점 찍기 실패:", error);
+    }
+  };
+
+  loadDots();
+}, [selectedDate]); // 선택된 날짜가 바뀔 때마다 갱신
+
+  useEffect(() => {
+  const fetchReportDetail = async () => {
+    if (!selectedDate) return; // 날짜가 없으면 실행 방지
+    
+    setIsLoading(true);
+    try {
+      // 🌟 7번 대신 8번 API(fetchReportByDate)를 호출하며 현재 선택된 날짜를 넘겨줍니다.
+      const data = await fetchReportByDate(selectedDate); 
+      
+      if (data) {
+        console.log(`✅ [${selectedDate}] 상세 리포트 수신 성공:`, data);
+        setReportDetail(data); // 백엔드에서 준 그날의 상세 데이터를 바로 상태에 저장
+      } else {
+        setReportDetail(null); // 응답이 비어있으면 null 처리
+      }
+    } catch (error) {
+      console.error(`⚠️ [${selectedDate}] 상세 리포트 로딩 실패:`, error);
+      setReportDetail(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  fetchReportDetail();
+}, [selectedDate]); // 사용자가 캘린더나 화살표로 날짜를 바꿀 때마다 새로 서버에 요청합니다.
+
 
   if (isLoading) return <View style={{flex:1, justifyContent:'center'}}><ActivityIndicator size="large" /></View>;
 
@@ -126,9 +160,7 @@ export default function CaregiverReport() {
                 setSelectedDate(day.dateString);
                 setCalendarVisible(false);
               }}
-              markedDates={{
-                [selectedDate]: { selected: true, selectedColor: '#3b82f6' }
-              }}
+              markedDates={markedDates}
               theme={{
                 todayTextColor: '#3b82f6',
                 arrowColor: '#3b82f6',
