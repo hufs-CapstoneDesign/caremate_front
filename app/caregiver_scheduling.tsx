@@ -5,7 +5,7 @@ import { Calendar, ChevronLeft, Clock, Phone, X, Plus } from 'lucide-react-nativ
 import styled from 'styled-components/native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import {fetchSchedule, addSchedule} from '../services/api';
-const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5";
+import * as SecureStore from "expo-secure-store"; // 상단에 추가
 
 // --- 타입 정의 ---
 interface SelectionProps {
@@ -28,7 +28,8 @@ const GuardianAISetting = () => {
   const [isEnabled, setIsEnabled] = useState(true);
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+  const [patientId, setPatientId] = useState<string | null>(null); // ✅ 추가
+
   const [currentDay, setCurrentDay] = useState('월');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
@@ -61,45 +62,47 @@ const GuardianAISetting = () => {
   };
 
 useEffect(() => {
-    const fetchExistingSchedules = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetchSchedule(PATIENT_ID);
-        
-        if (response && response.schedule_list) {
-          // 1. response.schedule_list를 바탕으로 백엔드 스펙 매핑
-          const mappedSchedules = response.schedule_list.map((item: any, index: number) => {
-            return {
-              id: item.schedule_id || `existing_${index}_${Date.now()}`,
-              day: item.day_of_week !== undefined ? days[item.day_of_week] : '월',
-              time: parseBackendTimeToDate(item.call_time)
-            };
-          });
+  const fetchExistingSchedules = async () => {
+    try {
+      setIsLoading(true);
 
-          // 2. 요일 순서대로 정렬
-          const sortedSchedules = mappedSchedules.sort((a: any, b: any) => {
-            return days.indexOf(a.day) - days.indexOf(b.day);
-          });
+      // ✅ PATIENT_ID 상수 대신 SecureStore에서 동적으로 읽기
+      const savedId = await SecureStore.getItemAsync("CONNECTED_PATIENT_ID");
+      console.log("🔑 CONNECTED_PATIENT_ID:", savedId); // 여기 추가
 
-          // 3. 🌟 화면 갱신 상태(State) 저장!
-          setSchedules(sortedSchedules);
-        } else {
-          // schedule_list가 비어있거나 없을 때 예외 처리
-          setSchedules([]);
-        }
-      } catch (error) {
-        // 백엔드 통신 실패나 401/500 에러 디버깅 로그
-        console.error("🚨 [스케줄 API 에러] 기존 스케줄 로딩 실패:", error);
-        // 에러가 나더라도 앱이 크래시되지 않도록 안전하게 빈 배열로 초기화
-        setSchedules([]); 
-      } finally {
-        // 로딩 애니메이션 인디케이터 해제
-        setIsLoading(false);
+      if (!savedId) {
+        Alert.alert("안내", "연결된 환자가 없습니다.");
+        router.back();
+        return;
       }
-    };
+      setPatientId(savedId);
 
-    fetchExistingSchedules();
-  }, []);
+      const response = await fetchSchedule(savedId); // ✅ savedId 사용
+      
+      if (response && response.schedule_list) {
+        const mappedSchedules = response.schedule_list.map((item: any, index: number) => ({
+          id: item.schedule_id || `existing_${index}_${Date.now()}`,
+          day: item.day_of_week !== undefined ? days[item.day_of_week] : '월',
+          time: parseBackendTimeToDate(item.call_time)
+        }));
+
+        const sortedSchedules = mappedSchedules.sort((a: any, b: any) =>
+          days.indexOf(a.day) - days.indexOf(b.day)
+        );
+        setSchedules(sortedSchedules);
+      } else {
+        setSchedules([]);
+      }
+    } catch (error) {
+      console.error("🚨 [스케줄 API 에러]:", error);
+      setSchedules([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  fetchExistingSchedules();
+}, []);
 
   const onTimeChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     setShowPicker(Platform.OS === 'ios');
@@ -154,7 +157,7 @@ useEffect(() => {
         })) : []
       };
 
-      const data: any = await addSchedule(PATIENT_ID, payload);
+      const data: any = await addSchedule(patientId, payload);
 
       if (data) {
         console.log("✅ 일정 추가 성공:", data);
