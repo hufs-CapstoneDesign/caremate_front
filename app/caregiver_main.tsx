@@ -6,6 +6,7 @@ import * as SecureStore from "expo-secure-store"; // 🌟 토큰 조회를 위�
 import { registerAndSendFcmToken } from "../utils/fcm"; // 🌟 공통 FCM 함수 추가 (경로 확인 필요)
 import {requestCall} from "../services/api.js"; // 🌟 API 호출 함수 추가 (경로 확인 필요)
 import styled from 'styled-components/native';
+import * as Notifications from 'expo-notifications'; // 🌟 실시간 푸시 알림 감지를 위해 추가
 // --- 백엔드 연결을 위한 설정 ---
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -25,6 +26,17 @@ const GuardianMain = () => {
   // 🌟 동적 환자 연동을 위한 상태 추가
   const [patientId, setPatientId] = useState<string | null>(null);
   const [patientName, setPatientName] = useState<string | null>(null);
+  // 🌟 실시간으로 수신된 알림 목록을 담을 상태 (기본값으로 빈 배열 또는 가상 데이터를 넣어둡니다)
+  const [notifications, setNotifications] = useState<any[]>([
+    {
+      id: 'default_1',
+      isUrgent: true,
+      text: '[오전 10:30] 전화 3회 미수신 - 즉시 확인 필요',
+      time: '방금 전',
+      backgroundColor: '#FFF0F0'
+    }
+  ]);
+
 const handleLogout = () => {
     Alert.alert(
       "로그아웃",
@@ -81,6 +93,37 @@ const handleLogout = () => {
     };
 
     initializeCaregiverSession();
+  }, []);
+  // 🌟 앱이 열려있을 때 날아오는 실시간 FCM 알림을 감지하는 리스너
+  useEffect(() => {
+    // 1. 알림이 도착했을 때 실행되는 핸들러 등록
+    const subscription = Notifications.addNotificationReceivedListener(notification => {
+      console.log("🔔 실시간 푸시 수신:", notification);
+      
+      // 백엔드가 보낸 FCM 데이터 주머니(payload) 꺼내기
+      const { title, body } = notification.request.content;
+      const data = notification.request.content.data; // 필요 시 백엔드가 숨겨보낸 추가 데이터
+
+      // 현재 시간을 예쁘게 포맷팅 ([오후 02:15] 형태)
+      const now = new Date();
+      const timeString = `[${now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true })}]`;
+
+      // 새로운 알림 객체 생성
+      const newNoti = {
+        id: notification.request.identifier || `noti_${Date.now()}`,
+        // 백엔드에서 보낸 body에 '미수신'이나 '긴급'이라는 단어가 포함되어 있으면 빨간색 배경 지정
+        isUrgent: body?.includes('미수신') || body?.includes('긴급') || false,
+        text: `${timeString} ${body || '새로운 알림이 도착했습니다.'}`,
+        time: '방금 전',
+        backgroundColor: (body?.includes('미수신') || body?.includes('긴급')) ? '#FFF0F0' : '#FFF'
+      };
+
+      // 🌟 기존 알림 배열의 맨 앞에 새 알림을 얹어서 화면을 실시간으로 갱신합니다!
+      setNotifications(prev => [newNoti, ...prev]);
+    });
+
+    // 2. 컴포넌트가 꺼질 때 리스너를 해제하여 메모리 누수 방지
+    return () => subscription.remove();
   }, []);
 
   // 🌟 [전화 걸기] 메뉴를 탭했을 때 백엔드로 FCM 발송 중계를 요청하는 함수
@@ -227,14 +270,26 @@ const handleLogout = () => {
           <TouchableOpacity><MoreText fontSize={16}>전체보기</MoreText></TouchableOpacity>
         </SectionHeader>
 
-        {/* 긴급 알림 */}
-        <NotificationItem isUrgent={true} backgroundColor="#FFF0F0">
-          <NotiPoint backgroundColor="#FF6B6B" />
-          <NotiContent>
-            <NotiText fontSize={16} isUrgent={true} color="#1A1C1E">[오전 10:30] 전화 3회 미수신 - 즉시 확인 필요</NotiText>
-            <NotiTime fontSize={14} color="#1A1C1E">방금 전</NotiTime>
-          </NotiContent>
-        </NotificationItem>
+        {/* 🌟 실시간 푸시 알림 동적 데이터 렌더링 */}
+        {notifications.map((noti) => (
+          <NotificationItem 
+            key={noti.id} 
+            isUrgent={noti.isUrgent} 
+            backgroundColor={noti.backgroundColor}
+          >
+            <NotiPoint backgroundColor={noti.isUrgent ? "#FF6B6B" : "#BBB"} />
+            <NotiContent>
+              <NotiText 
+                fontSize={16} 
+                isUrgent={noti.isUrgent} 
+                color="#1A1C1E"
+              >
+                {noti.text}
+              </NotiText>
+              <NotiTime fontSize={14} color="#1A1C1E">{noti.time}</NotiTime>
+            </NotiContent>
+          </NotificationItem>
+        ))}
 
         {/* 환자 추가 버튼 */}
         <AddPatientButton
