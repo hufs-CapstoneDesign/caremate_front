@@ -84,7 +84,11 @@ const handleLogout = () => {
       // 🌟 [에러 수정] currentPatientId를 첫 번째 인자로 넘겨주어 'Expected 2 arguments, but got 0' 에러 완벽 해결
       if (currentPatientId) {
         try {
-          await registerAndSendFcmToken(currentPatientId, "CAREGIVER");
+          // ✅ 수정
+          const caregiverToken = await SecureStore.getItemAsync("userToken");
+          if (caregiverToken) {
+            await registerAndSendFcmToken(caregiverToken, "CAREGIVER");
+          }
           console.log("✅ 보호자용 FCM 토큰 등록 성공");
         } catch (error) {
           console.error("보호자 메인 FCM 등록 중 오류 발생:", error);

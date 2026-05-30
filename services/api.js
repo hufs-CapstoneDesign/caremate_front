@@ -82,8 +82,16 @@ export async function invitePatient(patientData) {
 }
 
 /** 3. 환자 로그인 (코드입력) */
+// ✅ 토큰 없이 그냥 fetch로 직접 보내기
 export async function loginPatient(code) {
-  return await requestWithToken("auth/login-with-code", { invitation_code: code });
+  const response = await fetch(`${BASE_URL}/auth/login-with-code`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ invitation_code: code }),
+  });
+  return await response.json();
 }
 
 //calls

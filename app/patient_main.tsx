@@ -31,7 +31,10 @@ export default function PatientMain() {
           setPatientId(savedId);
           
           if (Device.isDevice) {
-            await registerAndSendFcmToken(savedId, "PATIENT");
+            const patientToken = await SecureStore.getItemAsync("patientToken");
+            if (patientToken) {
+              await registerAndSendFcmToken(patientToken, "PATIENT");
+            }
             console.log(`✅ 환자용 FCM 토큰 동기화 완료 (ID: ${savedId})`);
           }
         }
@@ -147,10 +150,10 @@ export default function PatientMain() {
         {/* 테스트용 버튼 */}
         <TouchableOpacity
           style={styles.subTestCard}
-          onPress={() => router.push("/patient_incoming_call")}
+          onPress={() => router.replace("/")}
         >
           <Ionicons name="settings-outline" size={20} color="#718096" />
-          <Text style={styles.subTestText}>수신 화면 UI 테스트</Text>
+          <Text style={styles.subTestText}>메인화면으로</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
