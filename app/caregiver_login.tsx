@@ -17,7 +17,6 @@ import {
 } from "react-native";
 import { ShieldCheck, Lock, Mail } from 'lucide-react-native';
 import * as SecureStore from "expo-secure-store";
-import { loginGuardian } from "../services/api.js";
 
 export default function CaregiverLoginScreen() {
   const [username, setUsername] = useState("");
@@ -34,29 +33,35 @@ export default function CaregiverLoginScreen() {
     setIsLoading(true);
 
     try {
-      // 1. API 호출 (이미 객체로 파싱된 데이터가 들어옵니다)
-      const result = await loginGuardian({ username, password });
-      
-      console.log("로그인 API 응답:", result);
+      const response = await fetch(`http://${process.env.EXPO_PUBLIC_API_URL}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      });
 
-      // 2. 🌟 백엔드가 준 응답에 'access_token'이 존재하면 로그인 성공으로 판단합니다.
-      if (result && result.access_token) {
-        
-        // 3. SecureStore에 신분과 토큰을 정확하게 저장합니다.
-        await SecureStore.setItemAsync("userRole", "GUARDIAN");
-        await SecureStore.setItemAsync("guardianToken", result.access_token);
+      const result = await response.json();
 
-        Alert.alert("성공", `${result.name || "보호자"}님, 환영합니다!`);
-        
-        // 4. 메인 화면으로 이동
-        router.replace("/caregiver_main"); 
+      if (response.ok) {
+        console.log("백엔드 응답 전체 데이터:", result);
+
+        const tokenToSave = result.access_token || result.accessToken || result.token;
+
+        if (tokenToSave) {
+          await SecureStore.setItemAsync("userToken", String(tokenToSave));
+          Alert.alert("성공", "로그인되었습니다.");
+          router.replace("/caregiver_main"); // 메인 화면으로 이동
+        } else {
+          Alert.alert("로그인 실패", "서버로부터 인증 토큰을 받지 못했습니다. 변수명을 확인해주세요.");
+          console.error("토큰을 찾을 수 없습니다. result 객체 구조:", result);
+        }
       } else {
-        // 백엔드에서 200 OK는 왔지만 access_token이 없는 경우
-        Alert.alert("실패", "로그인 정보가 올바르지 않습니다. 다시 확인해주세요.");
+        Alert.alert("로그인 실패", result.message || "정보를 다시 확인해 주세요.");
       }
     } catch (error) {
-      console.error("로그인 에러 상세:", error);
-      Alert.alert("오류", "서버 통신 중 에러가 발생했습니다.");
+      console.error(error);
+      Alert.alert("에러", "네트워크 리퀘스트 타임아웃 또는 서버 연결 실패");
     } finally {
       setIsLoading(false);
     }
@@ -73,12 +78,17 @@ export default function CaregiverLoginScreen() {
         >
           {/* 상단 타이틀 */}
           <View style={styles.headerSection}>
-            <View style={styles.logoContainer}>
-              <ShieldCheck size={40} color="#FFFFFF" />
+              {/* 🌟 [수정] 방패 아이콘을 터치 가능한 버튼으로 변경하여 index 화면("/")으로 이동하게 함 */}
+              <TouchableOpacity 
+                style={styles.logoContainer}
+                onPress={() => router.replace("/")}
+                activeOpacity={0.7}
+              >
+                <ShieldCheck size={40} color="#FFFFFF" />
+              </TouchableOpacity>
+              <Text style={styles.title}>돌봄파트너 로그인</Text>
+              <Text style={styles.subtitle}>보호자 계정으로 서비스를 시작합니다</Text>
             </View>
-            <Text style={styles.title}>돌봄 파트너 로그인</Text>
-            <Text style={styles.subtitle}>Caregiver Authentication</Text>
-          </View>
 
           {/* 입력 폼 */}
           <View style={styles.formSection}>
