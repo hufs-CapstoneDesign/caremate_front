@@ -39,20 +39,33 @@ export async function requestWithToken(endpoint, payload = {}, method = "POST") 
     // 5. 백엔드에 요청 쏘기
     const response = await fetch(`${BASE_URL}/${endpoint}`, options);
 
-    // 6. 결과 반환 처리
+// 6. 결과 반환 처리 (api.js 내부 수정)
     if (!response.ok) {
-      // 401, 500 등 서버 에러가 났을 때 로그 확인용
       console.error(`[API 에러] ${method} ${endpoint} 상태코드: ${response.status}`);
+      return await response.json();
     }
 
-    return await response.json();
+    // 🌟 수정된 안전한 반환 처리 부분
+    // 1. 서버 응답의 Content-Type 헤더 확인
+    const contentType = response.headers.get("content-type");
+    
+    if (contentType && contentType.includes("application/json")) {
+      // JSON 형태가 확실하다면 파싱하되, Body가 비어있을 때를 대비해 text를 먼저 읽고 처리합니다.
+      const responseText = await response.text();
+      return responseText ? JSON.parse(responseText) : {};
+    } else {
+      // 백엔드가 JSON이 아니라 일반 텍스트나 빈 값을 보낸 경우
+      const responseText = await response.text();
+      return { message: responseText || "성공 (데이터 없음)" };
+    }
+
   } catch (error) {
     console.error(`[API 예외 에러] ${endpoint} 통신 중 에러 발생:`, error);
     throw error;
   }
 }
 
-// services/api.js 하단에 추가할 기능별 함수들
+// 기능별 함수들
 
 //auth
 
