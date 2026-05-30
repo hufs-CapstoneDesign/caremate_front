@@ -84,12 +84,13 @@ export async function loginPatient(code) {
   return await requestWithToken("auth/login-with-code", { code });
 }
 
-/** 4. FCM 토큰 보내기 */
-export async function sendFCMToken(token) {
-  return await requestWithToken("auth/fcm-token", { fcm_token: token }, "PATCH");
+//calls
+
+/** 4. 보호자가 통화 요청하기  */
+export async function requestCall(callData) {
+  return await requestWithToken("calls/request", callData);
 }
 
-//calls
 
 /** 5. 통화 시작하기 */
 export async function startSession(callData) {

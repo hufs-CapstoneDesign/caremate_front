@@ -5,6 +5,7 @@ import { TouchableOpacity, View, ScrollView, Alert, ActivityIndicator } from 're
 import styled from 'styled-components/native';
 import * as SecureStore from "expo-secure-store"; // 🌟 토큰 조회를 위해 추가
 import { registerAndSendFcmToken } from "../utils/fcm"; // 🌟 공통 FCM 함수 추가 (경로 확인 필요)
+import {requestCall} from "../services/api.js"; // 🌟 API 호출 함수 추가 (경로 확인 필요)
 // --- 백엔드 연결을 위한 설정 ---
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5"; 
@@ -69,25 +70,26 @@ const handleLogout = () => {
     try {
       setIsCalling(true);
 
-      const response = await fetch(`http://${API_BASE_URL}/calls`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          patient_id: PATIENT_ID,
-          call_type: "requested", // 보호자 수동 요청임을 명시
-        }),
+      // 🌟 1. 생짜 fetch 대신 정확한 API인 requestCall 함수를 호출합니다.
+      // 인자값으로 백엔드가 원하는 patient_id와 call_type 구조를 그대로 넘겨줍니다.
+      const result = await requestCall({
+        patient_id: PATIENT_ID,
       });
 
-      if (!response.ok) {
-        throw new Error("서버에 통화 요청을 실패했습니다.");
-      }
+      console.log("통화 요청 API 응답:", result);
 
-      Alert.alert("통화 연결 시도", "어르신께 AI 안부 통화 신호를 보냈습니다. 잠시만 기다려주세요.");
+      // 🌟 2. 백엔드가 준 JSON 응답 규격인 result.success 값을 기준으로 체크합니다.
+      if (result && result.success) {
+        // 백엔드가 준 성공 메시지("환자에게 AI 통화 요청 푸시를 성공적으로 발송했습니다.")를 알림창에 띄워줍니다.
+        Alert.alert("통화 연결 시도", result.message || "어르신께 AI 안부 통화 신호를 보냈습니다. 잠시만 기다려주세요.");
+      } else {
+        // 백엔드 연결은 되었으나 success가 false이거나 응답 값이 비어있을 때
+        Alert.alert("연결 실패", result?.message || "서버 응답이 올바르지 않습니다.");
+      }
       
     } catch (error) {
-      console.error("실시간 전화걸기 오류:", error);
+      // api.js 내부에서 네트워크 상태 코드가 에러면 throw 하므로 이리로 들어옵니다.
+      console.error("실시간 통화 요청 오류:", error);
       Alert.alert("연결 실패", "서버 네트워크 상태를 확인 후 다시 시도해 주세요.");
     } finally {
       setIsCalling(false);
