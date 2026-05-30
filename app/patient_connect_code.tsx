@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import * as SecureStore from "expo-secure-store";
+import { loginPatient} from "../services/api.js";
 
 export default function PatientConnectCodeScreen() {
   const [code, setCode] = useState("");
@@ -29,19 +30,9 @@ export default function PatientConnectCodeScreen() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`http://${process.env.EXPO_PUBLIC_API_URL}/auth/login-with-code`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          patient_code: trimmedCode,
-        }),
-      });
+      const data = await loginPatient(trimmedCode);
 
-      const data = await response.json();
-
-      if (response.status === 200) {
+      if (data && !data.detail && !data.message) {
         const { access_token, user_id, role, name } = data;
 
         // 🌟 [로그 출력 시작] 백엔드에서 받은 응답 데이터를 터미널에 예쁘게 찍어줍니다.
@@ -54,7 +45,6 @@ export default function PatientConnectCodeScreen() {
         console.log(`🎫 토큰 타입      : ${data.token_type}`);
         console.log(`🔒 JWT 토큰       : ${access_token ? `${access_token.substring(0, 15)}...[생략]...` : "없음"}`);
         console.log("==========================================");
-        // 🌟 [로그 출력 끝]
 
         if (access_token) {
           // 암호화된 보안 저장소(SecureStore)에 각각의 정보 저장
@@ -70,10 +60,10 @@ export default function PatientConnectCodeScreen() {
           // 성공 시 메인 화면으로 이동
           router.replace("/patient_main");
         } else {
-          Alert.alert("오류", "서버 응답 형식이 올바르지 않습니다.");
+          Alert.alert("오류", "서버 응답 형식이 올바르지 않습니다. (토큰 누락)");
         }
       } else {
-        const errorMessage = data.detail || "연결에 실패했습니다. 코드를 다시 확인해 주세요.";
+        const errorMessage = data.detail || data?.message || "연결에 실패했습니다. 코드를 다시 확인해 주세요.";
         Alert.alert("인증 실패", errorMessage);
       }
     } catch (error) {
