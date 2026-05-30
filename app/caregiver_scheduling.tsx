@@ -4,8 +4,7 @@ import { router } from "expo-router";
 import { Calendar, ChevronLeft, Clock, Phone, X, Plus } from 'lucide-react-native';
 import styled from 'styled-components/native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import axios from 'axios';
-import { requestWithToken } from '../services/api';
+import {fetchSchedule, addSchedule} from '../services/api';
 const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5";
 
 // --- 타입 정의 ---
@@ -65,7 +64,7 @@ useEffect(() => {
     const fetchExistingSchedules = async () => {
       try {
         setIsLoading(true);
-        const response = await requestWithToken(`schedules/${PATIENT_ID}`, {}, "GET");
+        const response = await fetchSchedule(PATIENT_ID);
         
         if (response && response.schedule_list) {
           // 1. response.schedule_list를 바탕으로 백엔드 스펙 매핑
@@ -109,7 +108,7 @@ useEffect(() => {
     }
   };
 
-  const addSchedule = () => {
+  const submitSchedule = () => {
     const isDuplicate = schedules.some(
       (item) => item.day === currentDay && 
       item.time.getHours() === currentTime.getHours() && 
@@ -144,25 +143,26 @@ useEffect(() => {
       return;
     }
 
-    const payload = {
-      ai_call_enabled: isEnabled,
-      schedule_list: isEnabled ? schedules.map(item => ({
-        // 기존에 발급받았던 ID가 있으면 유지하고, 신규 데이터면 보낼 때 제외하거나 임시 처리 가능
-        day_of_week: days.indexOf(item.day), // 백엔드 확장 필드 명칭에 맞춰 전송
-        call_time: formatBackendTime(item.time)
-      })) : []
-    };
-
     try {
-      // 기존 명세서 기반 저장 API 통신 (POST 또는 PUT 프로젝트 규칙에 따라 사용)
-      const response = await requestWithToken(`schedules/${PATIENT_ID}`, payload, "PATCH");
-      
-      Alert.alert('성공', 'AI 안부 전화 설정이 수정되었습니다.', [
-        { text: '확인', onPress: () => router.back() }
-      ]);
+      // 🌟 API 규격에 맞춰 PATIENT_ID와 payload를 인자로 넘겨주고 결과 데이터를 바로 받습니다.
+      const payload = {
+        ai_call_enabled: isEnabled,
+        schedule_list: isEnabled ? schedules.map(item => ({
+        // 기존에 발급받았던 ID가 있으면 유지하고, 신규 데이터면 보낼 때 제외하거나 임시 처리 가능
+          day_of_week: days.indexOf(item.day), // 백엔드 확장 필드 명칭에 맞춰 전송
+          call_time: formatBackendTime(item.time)
+        })) : []
+      };
+
+      const data: any = await addSchedule(PATIENT_ID, payload);
+
+      if (data) {
+        console.log("✅ 일정 추가 성공:", data);
+        // 이후 성공 시 처리할 UI 로직 (예: 모달 닫기, 새로고침 등)을 작성하세요.
+      }
     } catch (error) {
-      console.error("설정 저장 실패:", error);
-      Alert.alert('오류', '설정 저장 중 문제가 발생했습니다.');
+      console.error("❌ 일정 추가 중 오류 발생:", error);
+      Alert.alert("오류", "일정을 추가하지 못했습니다. 다시 시도해 주세요.");
     }
   };
 
@@ -245,7 +245,7 @@ useEffect(() => {
                 />
               )}
 
-              <AddScheduleButton onPress={addSchedule} activeOpacity={0.7}>
+              <AddScheduleButton onPress={submitSchedule} activeOpacity={0.7}>
                 <Plus size={16} color="#FFF" />
                 <AddButtonText>이 시간대에 발신 추가</AddButtonText>
               </AddScheduleButton>
