@@ -1,7 +1,7 @@
 import { encode as base64Encode } from "base-64";
 import { Audio } from "expo-av";
 import * as FileSystem from "expo-file-system/legacy";
-import { router, useLocalSearchParams } from "expo-router"; // 1. useLocalSearchParams 임포트 추가
+import { router, useLocalSearchParams } from "expo-router"; 
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -9,19 +9,19 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Alert, // Alert 임포트 누락 방지
 } from "react-native";
+// 🌟 api.js에서 세션 시작(startSession)과 세션 종료(endSession)를 임포트합니다.
+import { startSession, endSession } from "../services/api.js"; 
 
 // --- 상수 및 설정 ---
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
 const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5";
-
-// 기존 상수로 고정되었던 CALL_TYPE 제거
 
 type CallStatus = "connecting" | "listening" | "speaking";
 
 const SILENCE_LIMIT_MS = 2000;
 const METERING_INTERVAL_MS = 250;
-const SILENCE_THRESHOLD = -30; // 사용자 마이크 환경에 맞춘 설정
+const SILENCE_THRESHOLD = -30; 
 
 const statusText = {
   connecting: { top: "연결 중", main: "AI 케어봇", sub: "연결하고 있어요...", dots: "••••••" },
@@ -30,7 +30,6 @@ const statusText = {
 };
 
 export default function CallScreen() {
-  // 2. 라우터 파라미터로부터 call_type을 받아옵니다. (기본값은 혹시 모를 상황을 대비해 'voluntary')
   const params = useLocalSearchParams();
   const currentCallType = params.call_type || "voluntary";
 
@@ -60,40 +59,44 @@ export default function CallScreen() {
     return () => { cleanup(); };
   }, []);
 
-  // --- API 및 통신 로직 (로그 복구 완료) ---
+  // --- API 및 통신 로직 (중복 블록 및 변수 꼬임 해결) ---
 
   async function startCall() {
     try {
       setStatus("connecting");
-      console.log(`1. [API 요청] 통화 시작 (${currentCallType}):`, `${API_BASE_URL}/calls`);
+      console.log(`📱 [1단계: 통화 요청 시작] 백엔드로 세션 생성을 요청합니다... (타입: ${currentCallType})`);
     
       const permission = await Audio.requestPermissionsAsync();
       if (permission.status !== "granted") {
         console.error("마이크 권한 거부됨");
+        Alert.alert("권한 오류", "마이크 권한 허용이 필요합니다.");
         return;
       }
 
-      // 3. body에 고정값이 아닌 라우터 파라미터로 받은 currentCallType을 동적으로 바인딩합니다.
-      const response = await fetch(`${API_BASE_URL}/calls`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          patient_id: PATIENT_ID, 
-          call_type: currentCallType  // 👈 동적 파라미터 적용
-        }),
+      // 🌟 api.js의 startSession 함수를 활용하여 데이터 요청
+      const data = await startSession({
+        patient_id: PATIENT_ID,
+        call_type: currentCallType 
       });
 
-      console.log("2. [API 응답 상태]:", response.status);
+      console.log("📥 [2단계: API 응답 수신 성공] 서버 응답 상태 데이터::", data);
 
-      if (!response.ok) throw new Error(`통화 시작 실패: ${response.status}`);
+      if (data && data.session_id && data.websocket_url) {
+        console.log("--------------------------------------------------");
+        console.log("✨ [3단계: 세션 데이터 매칭 완료] 통화 연결을 수립합니다.");
+        console.log(`   - 발급된 세션 ID : ${data.session_id}`);
+        console.log(`   - 웹소켓 연결 주소: ${data.websocket_url}`);
+        console.log("--------------------------------------------------");
 
-      const data = await response.json();
-      console.log("3. [세션 데이터 수신]:", data);
-
-      setSessionId(data.session_id);
-      connectWebSocket(data.websocket_url);
+        setSessionId(data.session_id);
+        connectWebSocket(data.websocket_url);
+      } else {
+        console.log("⚠️ [진행 실패] 서버 응답은 성공했으나 필수 세션 정보가 누락되었습니다.");
+        Alert.alert("연결 실패", "통화 세션 필수 정보를 받아오지 못했습니다.");
+      }
     } catch (error) {
-      console.error("❌ 통화 시작 단계 에러:", error);
+      console.error("❌ [통화 에러] 1~3단계 통화 시작 단계 중 에러 발생:", error);
+      Alert.alert("오류", "서버와 연결이 원활하지 않습니다. 다시 시도해 주세요.");
     }
   }
 
@@ -131,14 +134,9 @@ export default function CallScreen() {
       console.log("5. [API 요청] 통화 종료 시도, 세션:", sessionId);
       await cleanup();
 
+      // 🌟 생짜 fetch 대신 api.js의 endSession 함수를 사용하여 통화 종료 처리
       if (sessionId) {
-        const response = await fetch(`${API_BASE_URL}/calls/${sessionId}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ patient_id: 1 }),
-        });
-
-        const result = await response.json();
+        const result = await endSession(sessionId);
         console.log("6. [종료 API 결과]:", result);
       }
       router.back();
