@@ -1,16 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View, SafeAreaView, StatusBar, Platform } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View, SafeAreaView, StatusBar, Alert } from "react-native";
 import * as Device from "expo-device";
-// 🌟 이미 만들어두신 공통 FCM 함수 임포트 (경로가 다르면 프로젝트에 맞게 조절해 주세요!)
+// 🌟 1. SecureStore 라이브러리 임포트 추가
+import * as SecureStore from 'expo-secure-store'; 
 import { registerAndSendFcmToken } from "../utils/fcm"; 
 
-// --- 백엔드 연결을 위한 설정 ---
-const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5"; 
+// ❌ 기존 고정 상수는 완전히 제거합니다.
 
 export default function PatientMain() {
   const [now, setNow] = useState(new Date());
+  
+  // 🌟 2. 동적 처리를 위한 환자 ID 및 이름 상태(State) 선언
+  const [patientId, setPatientId] = useState<string | null>(null);
+  const [patientName, setPatientName] = useState<string>("어르신");
 
   // 시간 갱신 타이머 (기존 유지)
   useEffect(() => {
@@ -18,26 +22,58 @@ export default function PatientMain() {
     return () => clearInterval(timer);
   }, []);
 
-  // 🌟 [수정] 환자 앱 진입 시 utils/fcm.ts 공통 함수를 사용해 "PATIENT"로 등록 실행
+  // 🌟 3. 화면 진입 시 기기 저장소에서 정보를 꺼내고 FCM 동기화까지 순서대로 처리
   useEffect(() => {
-    const syncPatientFcm = async () => {
-      // 에뮬레이터나 시뮬레이터에서는 푸시 알림 기능이 작동하지 않을 수 있으므로 디바이스 체크
+    const initPatientSession = async () => {
+      let currentId = null;
+
+      try {
+        // ① 기기 저장소(SecureStore)에 담긴 실제 연동 데이터 획득
+        const savedId = await SecureStore.getItemAsync("PATIENT_ID");
+        const savedName = await SecureStore.getItemAsync("PATIENT_NAME");
+        
+        if (savedId) {
+          setPatientId(savedId);
+          currentId = savedId; // FCM 동기화에 바로 사용하기 위해 캐싱
+        }
+        if (savedName) {
+          setPatientName(savedName);
+        }
+      } catch (error) {
+        console.error("❗ 기기 저장소에서 환자 정보를 가져오지 못했습니다:", error);
+      }
+
+      // ② 에뮬레이터나 시뮬레이터 예외 체크 
       if (!Device.isDevice) {
         console.log("알림은 실제 기기(물리 디바이스)에서 테스트해야 합니다.");
         return;
       }
 
-      try {
-        // 환자앱은 별도 로그인이 없으므로 PATIENT_ID를 가상 토큰 인자로 넘기고 "PATIENT"를 함께 쏩니다.
-        await registerAndSendFcmToken(PATIENT_ID, "PATIENT");
-        console.log("환자용 FCM 토큰 동기화 성공");
-      } catch (error) {
-        console.error("환자 메인 FCM 등록 중 오류 발생:", error);
+      // ③ 위에서 성공적으로 식별자(ID)를 확보한 경우에만 안전하게 FCM 등록 연동
+      if (currentId) {
+        try {
+          await registerAndSendFcmToken(currentId, "PATIENT");
+          console.log(`✅ 환자용 FCM 토큰 동기화 완료 (ID: ${currentId})`);
+        } catch (error) {
+          console.error("환자 메인 FCM 등록 중 오류 발생:", error);
+        }
+      } else {
+        console.log("⚠️ 저장된 PATIENT_ID가 없어 FCM 토큰 동기화를 건너뜁니다.");
       }
     };
 
-    syncPatientFcm();
+    initPatientSession();
   }, []);
+
+  // 🌟 4. 전화하기 버튼 클릭 시 가드 처리 핸들러 추가
+  const handleCallPress = () => {
+    if (!patientId) {
+      Alert.alert("안내", "인증 정보가 동기화되지 않았습니다. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
+    // 데이터 보장이 완료되면 안전하게 통화 화면 진입
+    router.push("/patient_call");
+  };
 
   const timeString = now.toLocaleTimeString("ko-KR", {
     hour: "2-digit",
@@ -51,12 +87,13 @@ export default function PatientMain() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       
-      {/* 상단 헤더: 리포트 화면의 깔끔한 배경과 대비되는 포인트 컬러 섹션 */}
+      {/* 상단 헤더 영역 */}
       <View style={styles.header}>
         <View style={styles.profileRow}>
           <View>
             <Text style={styles.greeting}>안녕하세요,</Text>
-            <Text style={styles.name}>김순자 어르신</Text>
+            {/* 🌟 5. 하드코딩 문구를 제거하고 동적 {patientName} 변수 매칭 */}
+            <Text style={styles.name}>{patientName} 어르신</Text>
           </View>
         </View>
 
@@ -66,11 +103,12 @@ export default function PatientMain() {
         </View>
       </View>
 
-      {/* 하단 카드 영역: 리포트 및 시작화면과 동일한 화이트 라운드 카드 스타일 */}
+      {/* 하단 카드 영역 */}
       <View style={styles.cardContainer}>
+        {/* 🌟 6. 기존 라우터 다이렉트 푸시 대신 안전 장치가 마련된 핸들러 호출로 전환 */}
         <TouchableOpacity
           style={styles.mainCallCard}
-          onPress={() => router.push("/patient_call")}
+          onPress={handleCallPress}
         >
           <View style={styles.iconCircle}>
             <Ionicons name="call" size={32} color="#0FA67A" />
@@ -82,7 +120,7 @@ export default function PatientMain() {
           <Ionicons name="chevron-forward" size={24} color="#0FA67A" />
         </TouchableOpacity>
 
-        {/* 테스트용 버튼: 디자인 시스템에 맞춰 보조 카드로 변경 */}
+        {/* 테스트용 버튼 */}
         <TouchableOpacity
           style={styles.subTestCard}
           onPress={() => router.push("/patient_incoming_call")}
@@ -95,12 +133,10 @@ export default function PatientMain() {
   );
 }
 
-// 기존 하단에 적혀있던 스타일시트(styles) 정의는 그대로 사용하시면 됩니다!
-
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: "#E8F5E9" // 환자용 고유 포인트 컬러 유지
+    backgroundColor: "#E8F5E9" 
   },
   header: { 
     paddingTop: 40, 
@@ -136,7 +172,7 @@ const styles = StyleSheet.create({
   },
   cardContainer: {
     flex: 1, margin: 10,
-    backgroundColor: "#F8F9FB", // 리포트 배경색과 일치
+    backgroundColor: "#F8F9FB", 
     borderRadius: 35,
     padding: 25,
     elevation: 20,
@@ -150,7 +186,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     padding: 24,
     borderRadius: 28,
-    // 리포트 DetailCard 그림자 스타일 일치
     elevation: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
