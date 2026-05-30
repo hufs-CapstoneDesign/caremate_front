@@ -1,7 +1,7 @@
 import { encode as base64Encode } from "base-64";
 import { Audio } from "expo-av";
 import * as FileSystem from "expo-file-system/legacy";
-import { router, useLocalSearchParams } from "expo-router"; // 1. useLocalSearchParams 임포트 추가
+import { router, useLocalSearchParams } from "expo-router"; 
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -9,19 +9,17 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Alert, 
 } from "react-native";
-
-// --- 상수 및 설정 ---
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
-const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5";
-
-// 기존 상수로 고정되었던 CALL_TYPE 제거
+// 🌟 1. SecureStore 라이브러리 임포트 추가 (진짜 동적 ID를 꺼내기 위함)
+import * as SecureStore from 'expo-secure-store'; 
+import { startSession, endSession } from "../services/api.js"; 
 
 type CallStatus = "connecting" | "listening" | "speaking";
 
 const SILENCE_LIMIT_MS = 2000;
 const METERING_INTERVAL_MS = 250;
-const SILENCE_THRESHOLD = -30; // 사용자 마이크 환경에 맞춘 설정
+const SILENCE_THRESHOLD = -30; 
 
 const statusText = {
   connecting: { top: "연결 중", main: "AI 케어봇", sub: "연결하고 있어요...", dots: "••••••" },
@@ -30,7 +28,6 @@ const statusText = {
 };
 
 export default function CallScreen() {
-  // 2. 라우터 파라미터로부터 call_type을 받아옵니다. (기본값은 혹시 모를 상황을 대비해 'voluntary')
   const params = useLocalSearchParams();
   const currentCallType = params.call_type || "voluntary";
 
@@ -60,40 +57,65 @@ export default function CallScreen() {
     return () => { cleanup(); };
   }, []);
 
-  // --- API 및 통신 로직 (로그 복구 완료) ---
+  // --- API 및 통신 로직 ---
 
   async function startCall() {
     try {
       setStatus("connecting");
-      console.log(`1. [API 요청] 통화 시작 (${currentCallType}):`, `${API_BASE_URL}/calls`);
+      console.log(`📱 [1단계: 통화 요청 시작] 백엔드로 세션 생성을 요청합니다... (타입: ${currentCallType})`);
     
       const permission = await Audio.requestPermissionsAsync();
       if (permission.status !== "granted") {
         console.error("마이크 권한 거부됨");
+        Alert.alert("권한 오류", "마이크 권한 허용이 필요합니다.");
         return;
       }
 
-      // 3. body에 고정값이 아닌 라우터 파라미터로 받은 currentCallType을 동적으로 바인딩합니다.
-      const response = await fetch(`${API_BASE_URL}/calls`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          patient_id: PATIENT_ID, 
-          call_type: currentCallType  // 👈 동적 파라미터 적용
-        }),
+      // 🌟 [핵심 수정] 하드코딩 완전 제거! 방금 로그인 성공할 때 저장소에 넣은 진짜 환자 ID를 로드합니다.
+      const realPatientId = await SecureStore.getItemAsync("CONNECTED_PATIENT_ID");
+      console.log("🔑 기기에서 로드한 실제 환자 식별 ID:", realPatientId);
+
+      if (!realPatientId) {
+        Alert.alert("인증 오류", "연동된 환자 정보가 없습니다. 다시 로그인해 주세요.");
+        router.back();
+        return;
+      }
+
+      // 🌟 진짜 동적 ID를 실어서 통화 세션 요청을 발송합니다.
+      const data = await startSession({
+        patient_id: realPatientId,
+        call_type: currentCallType 
       });
 
-      console.log("2. [API 응답 상태]:", response.status);
+      console.log("📥 [2단계: API 응답 수신 성공] 서버 응답 상태 데이터::", data);
 
-      if (!response.ok) throw new Error(`통화 시작 실패: ${response.status}`);
+      if (data) {
+        // 🌟 백엔드가 세션 주머니 정보를 다채롭게 주더라도 낚아채도록 가드 구축
+        const actualSessionId = data.session_id || data.sessionId || data.data?.session_id || data.data?.sessionId;
+        const actualWsUrl = data.websocket_url || data.websocketUrl || data.data?.websocket_url || data.data?.websocketUrl;
 
-      const data = await response.json();
-      console.log("3. [세션 데이터 수신]:", data);
+        if (actualSessionId && actualWsUrl) {
+          console.log("--------------------------------------------------");
+          console.log("✨ [3단계: 세션 데이터 매칭 완료] 통화 연결을 수립합니다.");
+          console.log(`   - 발급된 세션 ID : ${actualSessionId}`);
+          console.log(`   - 웹소켓 연결 주소: ${actualWsUrl}`);
+          console.log("--------------------------------------------------");
 
-      setSessionId(data.session_id);
-      connectWebSocket(data.websocket_url);
+          setSessionId(actualSessionId);
+          connectWebSocket(actualWsUrl);
+        } else {
+          console.log("⚠️ 필수 세션 정보 파싱 실패", { actualSessionId, actualWsUrl });
+          Alert.alert("연결 실패", "통화 세션 필수 정보(ID/웹소켓 URL) 파싱에 실패했습니다.");
+          router.back();
+        }
+      } else {
+        Alert.alert("연결 실패", "통화 세션 필수 정보를 받아오지 못했습니다.");
+        router.back();
+      }
     } catch (error) {
-      console.error("❌ 통화 시작 단계 에러:", error);
+      console.error("❌ [통화 에러] 1~3단계 통화 시작 단계 중 에러 발생:", error);
+      Alert.alert("오류", "서버와 연결이 원활하지 않습니다. 다시 시도해 주세요.");
+      router.back();
     }
   }
 
@@ -132,13 +154,7 @@ export default function CallScreen() {
       await cleanup();
 
       if (sessionId) {
-        const response = await fetch(`${API_BASE_URL}/calls/${sessionId}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ patient_id: 1 }),
-        });
-
-        const result = await response.json();
+        const result = await endSession(sessionId);
         console.log("6. [종료 API 결과]:", result);
       }
       router.back();

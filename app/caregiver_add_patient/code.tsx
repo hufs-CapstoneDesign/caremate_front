@@ -5,12 +5,13 @@ import { Alert, ActivityIndicator } from "react-native";
 import styled from "styled-components/native";
 import { useAddPatientStore } from "@/store/addPatientStore";
 import * as SecureStore from "expo-secure-store";
+import { invitePatient } from "../../services/api.js"; // 프로젝트 실제 경로에 맞게 수정하세요.
 
 export default function AddPatientCodeScreen() {
   const resetStore = useAddPatientStore((state) => state.reset);
   const allData = useAddPatientStore((state) => state);
 
-  // 백엔드로부터 응답받을 코드를 저장할 상태 (초기값은 비워둡니다)
+  // 백엔드로부터 응답받을 코드를 저장할 상태
   const [finalCode, setFinalCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -36,7 +37,6 @@ export default function AddPatientCodeScreen() {
       familyMembers: allData.familyMembers,
       contacts: allData.contacts,
       medication: allData.medication,
-      // 💡 코드는 백엔드가 생성하므로 페이로드에서는 제외하거나 빈 값 처리
     };
 
     console.log("================ [백엔드 요청 규격 JSON 페이로드] ================");
@@ -44,39 +44,21 @@ export default function AddPatientCodeScreen() {
     console.log("==========================================================");
 
     try {
-      // 🔒 저장소에서 보호자의 JWT 토큰 꺼내기
-      const guardianToken = await SecureStore.getItemAsync("userToken");
+      // 🔒 api.js를 통해 데이터 전송 (이미 가공된 result 객체가 반환됩니다)
+      const result = await invitePatient(finalPayload);
+      console.log("환자 초대 API 응답:", result);
 
-      const API_URL = `http://${process.env.EXPO_PUBLIC_API_URL}/auth/invite-patient`; 
+      console.log("================ [백엔드 응답 데이터 수신] ================");
+      console.log(JSON.stringify(result, null, 2));
+      console.log("==========================================================");
 
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${guardianToken}`
-        },
-        body: JSON.stringify(finalPayload),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        console.log("================ [백엔드 응답 데이터 수신] ================");
-        console.log(JSON.stringify(data, null, 2));
-        console.log("==========================================================");
-
-        // 백엔드가 내려준 응답 객체에서 code 필드 추출 (예: data.code 혹은 data.invite_code)
-        // 💡 백엔드 키값 명세 규격에 맞게 'data.code' 부분을 수정하시면 됩니다.
-        const serverGeneratedCode = data.code; 
-
-        if (serverGeneratedCode) {
-          setFinalCode(serverGeneratedCode); // 받아온 세션 코드를 카드의 텍스트로 박아줌
-          console.log(`✅ 백엔드 발급 코드 반영 완료: ${serverGeneratedCode}`);
-        } else {
-          Alert.alert("확인", "환자 정보는 저장되었으나 발급된 코드를 확인할 수 없습니다.");
-        }
+      // 백엔드에서 내려주는 다양한 코드 변수명 대응
+      const generatedCode = result.invitation_code || result.code || result.patient_code;
+      if (generatedCode) {
+        setFinalCode(generatedCode); // 받아온 코드를 상태에 저장하여 카드에 반영
+        Alert.alert("성공", "환자 등록 및 인증 코드 발급이 완료되었습니다.");
       } else {
-        Alert.alert("등록 실패", data.detail || "서버 저장 도중 문제가 발생했습니다.");
+        Alert.alert("확인", "환자 정보는 저장되었으나 발급된 코드를 확인할 수 없습니다.");
       }
     } catch (error) {
       console.error("🚨 네트워크 에러 발생:", error);
@@ -114,12 +96,12 @@ export default function AddPatientCodeScreen() {
       </Content>
 
       <BottomArea>
-        {/* 코드가 발급되기 전에는 [코드 발급 및 전송], 발급된 후에는 [보호자 홈으로] 텍스트 전환 */}
+        {/* 🌟 finalCode가 있으면 handleGoToMain 실행, 텍스트는 '등록 완료'로 변경 */}
         <NextButton onPress={finalCode ? handleGoToMain : handleFetchCodeAndSubmit} disabled={isSubmitting}>
           {isSubmitting ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <NextText>{finalCode ? "보호자 홈으로" : "환자 등록 및 코드 받기"}</NextText>
+            <NextText>{finalCode ? "등록 완료" : "환자 등록 및 코드 받기"}</NextText>
           )}
         </NextButton>
       </BottomArea>

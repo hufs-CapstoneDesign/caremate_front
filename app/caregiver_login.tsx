@@ -49,8 +49,9 @@ export default function CaregiverLoginScreen() {
         const tokenToSave = result.access_token || result.accessToken || result.token;
 
         if (tokenToSave) {
-          await SecureStore.setItemAsync("guardianToken", String(tokenToSave));
-          await SecureStore.setItemAsync("userRole", "GUARDIAN");
+          await SecureStore.setItemAsync("userToken", String(tokenToSave));
+          await SecureStore.setItemAsync("userRole", "CAREGIVER"); // 👈 이거 추가
+
           Alert.alert("성공", "로그인되었습니다.");
           router.replace("/caregiver_main"); // 메인 화면으로 이동
         } else {
@@ -79,12 +80,17 @@ export default function CaregiverLoginScreen() {
         >
           {/* 상단 타이틀 */}
           <View style={styles.headerSection}>
-            <View style={styles.logoContainer}>
-              <ShieldCheck size={40} color="#FFFFFF" />
+              {/* 🌟 [수정] 방패 아이콘을 터치 가능한 버튼으로 변경하여 index 화면("/")으로 이동하게 함 */}
+              <TouchableOpacity 
+                style={styles.logoContainer}
+                onPress={() => router.replace("/")}
+                activeOpacity={0.7}
+              >
+                <ShieldCheck size={40} color="#FFFFFF" />
+              </TouchableOpacity>
+              <Text style={styles.title}>돌봄파트너 로그인</Text>
+              <Text style={styles.subtitle}>보호자 계정으로 서비스를 시작합니다</Text>
             </View>
-            <Text style={styles.title}>돌봄 파트너 로그인</Text>
-            <Text style={styles.subtitle}>Caregiver Authentication</Text>
-          </View>
 
           {/* 입력 폼 */}
           <View style={styles.formSection}>
