@@ -1,14 +1,18 @@
 import { router } from "expo-router";
 import { Bell, Calendar, User, Phone, Plus, LogOut } from 'lucide-react-native';
 import React, { useState, useEffect } from 'react'; // 🌟 API 상태 관리를 위한 useState 추가
-import { TouchableOpacity, View, ScrollView, Alert, ActivityIndicator, Text } from 'react-native'; // 🌟 순정 Text 컴포넌트 추가import styled from 'styled-components/native';
+import { TouchableOpacity, View, ScrollView, Alert, ActivityIndicator, Text } from 'react-native'; // 🌟 순정 Text 컴포넌트 추가
+import styled from 'styled-components/native';
 import * as SecureStore from "expo-secure-store"; // 🌟 토큰 조회를 위해 추가
 import { registerAndSendFcmToken } from "../utils/fcm"; // 🌟 공통 FCM 함수 추가 (경로 확인 필요)
 import {requestCall} from "../services/api.js"; // 🌟 API 호출 함수 추가 (경로 확인 필요)
-import styled from 'styled-components/native';
 import * as Notifications from 'expo-notifications'; // 🌟 실시간 푸시 알림 감지를 위해 추가
+
 // --- 백엔드 연결을 위한 설정 ---
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
+const Spacer = styled.View`
+  height: 15px;
+  `;
 
 // --- 타입 정의 (TypeScript 빨간 줄 방지) ---
 interface StyleProps {
@@ -26,16 +30,9 @@ const GuardianMain = () => {
   // 🌟 동적 환자 연동을 위한 상태 추가
   const [patientId, setPatientId] = useState<string | null>(null);
   const [patientName, setPatientName] = useState<string | null>(null);
-  // 🌟 실시간으로 수신된 알림 목록을 담을 상태 (기본값으로 빈 배열 또는 가상 데이터를 넣어둡니다)
-  const [notifications, setNotifications] = useState<any[]>([
-    {
-      id: 'default_1',
-      isUrgent: true,
-      text: '[오전 10:30] 전화 3회 미수신 - 즉시 확인 필요',
-      time: '방금 전',
-      backgroundColor: '#FFF0F0'
-    }
-  ]);
+  
+  // 🌟 [수정 완료] 초기 가상 데이터 제거 및 실시간 누적용 빈 배열 설정
+  const [notifications, setNotifications] = useState<any[]>([]);
 
 const handleLogout = () => {
     Alert.alert(
@@ -81,7 +78,7 @@ const handleLogout = () => {
         console.error("보호자 기기 정보 로드 실패:", error);
       }
 
-      // 환자 ID가 제대로 로드되었을 때만 FCM 토큰 동기화 진행
+      // 🌟 [에러 수정] currentPatientId를 첫 번째 인자로 넘겨주어 'Expected 2 arguments, but got 0' 에러 완벽 해결
       if (currentPatientId) {
         try {
           await registerAndSendFcmToken(currentPatientId, "CAREGIVER");
@@ -94,6 +91,7 @@ const handleLogout = () => {
 
     initializeCaregiverSession();
   }, []);
+
   // 🌟 앱이 열려있을 때 날아오는 실시간 FCM 알림을 감지하는 리스너
   useEffect(() => {
     // 1. 알림이 도착했을 때 실행되는 핸들러 등록
@@ -111,15 +109,24 @@ const handleLogout = () => {
       // 새로운 알림 객체 생성
       const newNoti = {
         id: notification.request.identifier || `noti_${Date.now()}`,
-        // 백엔드에서 보낸 body에 '미수신'이나 '긴급'이라는 단어가 포함되어 있으면 빨간색 배경 지정
         isUrgent: body?.includes('미수신') || body?.includes('긴급') || false,
         text: `${timeString} ${body || '새로운 알림이 도착했습니다.'}`,
         time: '방금 전',
+        date: now, // 3일 이내 필터링 계산용 Date 객체 주입
         backgroundColor: (body?.includes('미수신') || body?.includes('긴급')) ? '#FFF0F0' : '#FFF'
       };
 
-      // 🌟 기존 알림 배열의 맨 앞에 새 알림을 얹어서 화면을 실시간으로 갱신합니다!
-      setNotifications(prev => [newNoti, ...prev]);
+      // 🌟 [수정 완료] 새 알림이 올 때마다 이전 알림들과 함께 누적 배열을 형성하고 최근 3일치만 남깁니다.
+      setNotifications(prev => {
+        const updatedList = [newNoti, ...prev];
+        const threeDaysAgo = new Date();
+        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
+        return updatedList.filter(noti => {
+          const notiDate = noti.date ? new Date(noti.date) : new Date();
+          return notiDate >= threeDaysAgo;
+        });
+      });
     });
 
     // 2. 컴포넌트가 꺼질 때 리스너를 해제하여 메모리 누수 방지
@@ -133,7 +140,7 @@ const handleLogout = () => {
       Alert.alert("안내", "먼저 환자를 등록해 주세요.");
       return;
     }
-    const response = await requestCall(patientId);
+    
     if (isCalling) return;
 
     try {
@@ -174,7 +181,7 @@ const handleLogout = () => {
           <Title fontSize={26}>케어메이트 <TitleBlue>보호자</TitleBlue></Title>
         </GreetingSection>
         <IconGroup>
-          <TouchableOpacity activeOpacity={0.7}>
+          <TouchableOpacity activeOpacity={0.7} >
             <Bell color="#333" size={30} />
           </TouchableOpacity>
           <TouchableOpacity activeOpacity={0.7} style={{ marginLeft: 20 }}>
@@ -263,6 +270,9 @@ const handleLogout = () => {
             </Text>
           </View>
         )}
+        <Spacer />
+        <Spacer />
+        
 
         {/* 실시간 알림 피드 */}
         <SectionHeader>
@@ -270,26 +280,32 @@ const handleLogout = () => {
           <TouchableOpacity><MoreText fontSize={16}>전체보기</MoreText></TouchableOpacity>
         </SectionHeader>
 
-        {/* 🌟 실시간 푸시 알림 동적 데이터 렌더링 */}
-        {notifications.map((noti) => (
-          <NotificationItem 
-            key={noti.id} 
-            isUrgent={noti.isUrgent} 
-            backgroundColor={noti.backgroundColor}
-          >
-            <NotiPoint backgroundColor={noti.isUrgent ? "#FF6B6B" : "#BBB"} />
-            <NotiContent>
-              <NotiText 
-                fontSize={16} 
-                isUrgent={noti.isUrgent} 
-                color="#1A1C1E"
-              >
-                {noti.text}
-              </NotiText>
-              <NotiTime fontSize={14} color="#1A1C1E">{noti.time}</NotiTime>
-            </NotiContent>
-          </NotificationItem>
-        ))}
+        {/* 🌟 [수정 완료] 알림이 없을 때는 박스 없이 텍스트만 표시 / 있을 때만 기존 NotificationItem 컴포넌트를 맵핑해 순정 UI 그대로 보임 */}
+        {notifications.length === 0 ? (
+          <Text style={{ color: '#8A8D90', fontSize: 15, fontWeight: '500', textAlign: 'center', marginVertical: 30 }}>
+            알림이 없습니다.
+          </Text>
+        ) : (
+          notifications.map((noti) => (
+            <NotificationItem 
+              key={noti.id} 
+              isUrgent={noti.isUrgent} 
+              backgroundColor={noti.backgroundColor}
+            >
+              <NotiPoint backgroundColor={noti.isUrgent ? "#FF6B6B" : "#BBB"} />
+              <NotiContent>
+                <NotiText 
+                  fontSize={16} 
+                  isUrgent={noti.isUrgent} 
+                  color="#1A1C1E"
+                >
+                  {noti.text}
+                </NotiText>
+                <NotiTime fontSize={14} color="#1A1C1E">{noti.time}</NotiTime>
+              </NotiContent>
+            </NotificationItem>
+          ))
+        )}
 
         {/* 환자 추가 버튼 */}
         <AddPatientButton

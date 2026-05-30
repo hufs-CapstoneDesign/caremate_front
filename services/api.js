@@ -81,7 +81,7 @@ export async function invitePatient(patientData) {
 
 /** 3. 환자 로그인 (코드입력) */
 export async function loginPatient(code) {
-  return await requestWithToken("auth/login-with-code", { code });
+  return await requestWithToken("auth/login-with-code", { invitation_code: code });
 }
 
 //calls

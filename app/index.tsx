@@ -55,9 +55,23 @@ export default function StartScreen() {
   };
 
   // 피보호자(어르신) 앱 시작 버튼 클릭 시
-  const handlePatientStart = () => {
-    // 환자 메인은 로그인이 없거나 고정 진입이므로, fcm 발급은 patient_main 화면 내부에서 처리하도록 유도합니다.
-    router.push("/patient_main");
+  const handlePatientStart = async () => {
+    try {
+      // 🌟 기기에 저장된 환자 연동 정보(ID)가 있는지 확인합니다.
+      const savedPatientId = await SecureStore.getItemAsync("CONNECTED_PATIENT_ID");
+      
+      if (savedPatientId) {
+        // 1. 이미 코드를 입력해서 연동된 환자라면 기존처럼 메인으로 바로 진입
+        router.push("/patient_main");
+      } else {
+        // 2. 코드를 입력하지 않은 상태라면 코드 입력 화면(patient_connect_code)으로 강제 이동
+        router.push("/patient_connect_code");
+      }
+    } catch (error) {
+      console.error("환자 연동 상태 확인 중 오류 발생:", error);
+      // 에러 시 안전하게 입력 화면으로 유도
+      router.push("/patient_connect_code");
+    }
   };
 
   return (

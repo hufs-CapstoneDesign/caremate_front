@@ -101,7 +101,7 @@ export default function PatientConnectCodeScreen() {
 
         <TextInput
           style={styles.input}
-          placeholder="5자리 연결 코드 입력"
+          placeholder="연결 코드 입력"
           placeholderTextColor="#A0AEC0"
           value={code}
           onChangeText={setCode}
