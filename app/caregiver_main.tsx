@@ -1,14 +1,13 @@
 import { router } from "expo-router";
 import { Bell, Calendar, User, Phone, Plus, LogOut } from 'lucide-react-native';
 import React, { useState, useEffect } from 'react'; // 🌟 API 상태 관리를 위한 useState 추가
-import { TouchableOpacity, View, ScrollView, Alert, ActivityIndicator } from 'react-native'; // 🌟 인디케이터, 알럿 추가
-import styled from 'styled-components/native';
+import { TouchableOpacity, View, ScrollView, Alert, ActivityIndicator, Text } from 'react-native'; // 🌟 순정 Text 컴포넌트 추가import styled from 'styled-components/native';
 import * as SecureStore from "expo-secure-store"; // 🌟 토큰 조회를 위해 추가
 import { registerAndSendFcmToken } from "../utils/fcm"; // 🌟 공통 FCM 함수 추가 (경로 확인 필요)
 import {requestCall} from "../services/api.js"; // 🌟 API 호출 함수 추가 (경로 확인 필요)
+import styled from 'styled-components/native';
 // --- 백엔드 연결을 위한 설정 ---
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL;
-const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5"; 
 
 // --- 타입 정의 (TypeScript 빨간 줄 방지) ---
 interface StyleProps {
@@ -22,6 +21,10 @@ interface StyleProps {
 const GuardianMain = () => {
   // 🌟 통화 요청 중복 탭 방지 및 로딩 표시용 상태
   const [isCalling, setIsCalling] = useState(false);
+  
+  // 🌟 동적 환자 연동을 위한 상태 추가
+  const [patientId, setPatientId] = useState<string | null>(null);
+  const [patientName, setPatientName] = useState<string | null>(null);
 const handleLogout = () => {
     Alert.alert(
       "로그아웃",
@@ -46,25 +49,48 @@ const handleLogout = () => {
     );
   };
 
+  // 🌟 기기 저장소에서 환자 정보를 읽어오고, 로드 완료 후 FCM 토큰을 동기화합니다.
   useEffect(() => {
-    const syncFcmToken = async () => {
+    const initializeCaregiverSession = async () => {
+      let currentPatientId = null;
+
       try {
-        const token = await SecureStore.getItemAsync("userToken");
-        if (token) {
-          // 앱 진입 시 FCM 토큰을 백엔드와 동기화 (유저타입 "CAREGIVER" 전달)
-          await registerAndSendFcmToken(token, "CAREGIVER");
-          console.log("보호자 FCM 토큰 동기화 완료");
+        const savedId = await SecureStore.getItemAsync("CONNECTED_PATIENT_ID");
+        const savedName = await SecureStore.getItemAsync("CONNECTED_PATIENT_NAME");
+        
+        if (savedId) {
+          setPatientId(savedId);
+          currentPatientId = savedId;
+        }
+        if (savedName) {
+          setPatientName(savedName);
         }
       } catch (error) {
-        console.error("FCM 토큰 동기화 중 오류 발생:", error);
+        console.error("보호자 기기 정보 로드 실패:", error);
+      }
+
+      // 환자 ID가 제대로 로드되었을 때만 FCM 토큰 동기화 진행
+      if (currentPatientId) {
+        try {
+          await registerAndSendFcmToken(currentPatientId, "CAREGIVER");
+          console.log("✅ 보호자용 FCM 토큰 등록 성공");
+        } catch (error) {
+          console.error("보호자 메인 FCM 등록 중 오류 발생:", error);
+        }
       }
     };
 
-    syncFcmToken();
+    initializeCaregiverSession();
   }, []);
 
   // 🌟 [전화 걸기] 메뉴를 탭했을 때 백엔드로 FCM 발송 중계를 요청하는 함수
   const handleRequestCall = async () => {
+    // 상수가 아닌 상태값 검사 가드 추가
+    if (!patientId) {
+      Alert.alert("안내", "먼저 환자를 등록해 주세요.");
+      return;
+    }
+    const response = await requestCall(patientId);
     if (isCalling) return;
 
     try {
@@ -73,7 +99,7 @@ const handleLogout = () => {
       // 🌟 1. 생짜 fetch 대신 정확한 API인 requestCall 함수를 호출합니다.
       // 인자값으로 백엔드가 원하는 patient_id와 call_type 구조를 그대로 넘겨줍니다.
       const result = await requestCall({
-        patient_id: PATIENT_ID,
+        patient_id: patientId,
       });
 
       console.log("통화 요청 API 응답:", result);
@@ -119,49 +145,81 @@ const handleLogout = () => {
 
       <Content showsVerticalScrollIndicator={false}>
         {/* 현재 환자 상태 카드 */}
-        <StatusCard activeOpacity={0.9}>
-          <CardHeader>
-            <PatientInfo>
-              <Avatar source={require('./media/soonja.jpg')} />
-              <View>
-                <PatientName fontSize={22}>김순자 어르신</PatientName>
-                <StatusTag>
-                  <StatusDot backgroundColor="#2ECC71" />
-                  <StatusTagText color="#2ECC71" fontSize={14}>현재 연결됨</StatusTagText>
-                </StatusTag>
-              </View>
-            </PatientInfo>
-          </CardHeader>
-        </StatusCard>
+        {patientId ? (
+          // 🌟 [1] 환자가 등록되어 있을 때 보여줄 동적 UI
+          <>
+            {/* 현재 환자 상태 카드 */}
+            <StatusCard activeOpacity={0.9}>
+              <CardHeader>
+                <PatientInfo>
+                  <Avatar source={require('./media/soonja.jpg')} />
+                  <View>
+                    {/* 하드코딩 이름을 동적 상태값으로 교체 */}
+                    <PatientName fontSize={22}>
+                      {patientName ? `${patientName} 어르신` : "등록된 어르신"}
+                    </PatientName>
+                    <StatusTag>
+                      <StatusDot backgroundColor="#2ECC71" />
+                      <StatusTagText color="#2ECC71" fontSize={14}>현재 연결됨</StatusTagText>
+                    </StatusTag>
+                  </View>
+                </PatientInfo>
+              </CardHeader>
+            </StatusCard>
 
-        {/* 퀵 메뉴 섹션 */}
-        <MenuGrid>
-          <MenuButton onPress={() => router.push("/caregiver_report")}>
-            <MenuIconBox backgroundColor="#EEF5FF" size={80}>
-              <Calendar color="#4A90E2" size={36} />
-            </MenuIconBox>
-            <MenuText fontSize={16}>리포트 열람</MenuText>
-          </MenuButton>
+            {/* 퀵 메뉴 섹션 */}
+            <MenuGrid>
+              <MenuButton onPress={() => router.push("/caregiver_report")}>
+                <MenuIconBox backgroundColor="#EEF5FF" size={80}>
+                  <Calendar color="#4A90E2" size={36} />
+                </MenuIconBox>
+                <MenuText fontSize={16}>리포트 열람</MenuText>
+              </MenuButton>
 
-          {/* 🌟 수정: 원래 UI 컴포넌트 그대로 유지하고 onPress 및 로딩 분기만 추가 */}
-          <MenuButton activeOpacity={0.7} onPress={handleRequestCall}>
-            <MenuIconBox backgroundColor="#FFF0F0" size={80}>
-              {isCalling ? (
-                <ActivityIndicator size="small" color="#FF6B6B" />
-              ) : (
-                <Phone color="#FF6B6B" size={36} />
-              )}
-            </MenuIconBox>
-            <MenuText fontSize={16}>{isCalling ? "연결 중" : "전화 걸기"}</MenuText>
-          </MenuButton>
+              <MenuButton activeOpacity={0.7} onPress={handleRequestCall}>
+                <MenuIconBox backgroundColor="#FFF0F0" size={80}>
+                  {isCalling ? (
+                    <ActivityIndicator size="small" color="#FF6B6B" />
+                  ) : (
+                    <Phone color="#FF6B6B" size={36} />
+                  )}
+                </MenuIconBox>
+                <MenuText fontSize={16}>{isCalling ? "연결 중" : "전화 걸기"}</MenuText>
+              </MenuButton>
 
-          <MenuButton onPress={() => router.push("/caregiver_scheduling")}>
-            <MenuIconBox backgroundColor="#E8F5E9" size={80}>
-              <Calendar color="#2ECC71" size={36} />
-            </MenuIconBox>
-            <MenuText fontSize={16}>전화 스케줄링</MenuText>
-          </MenuButton>
-        </MenuGrid>
+              <MenuButton onPress={() => router.push("/caregiver_scheduling")}>
+                <MenuIconBox backgroundColor="#E8F5E9" size={80}>
+                  <Calendar color="#2ECC71" size={36} />
+                </MenuIconBox>
+                <MenuText fontSize={16}>전화 스케줄링</MenuText>
+              </MenuButton>
+            </MenuGrid>
+          </>
+        ) : (
+          <View style={{ 
+            padding: 30, 
+            backgroundColor: '#FFF', 
+            borderRadius: 24, 
+            marginTop: 10, 
+            alignItems: 'center', 
+            borderWidth: 1,
+            borderColor: '#EAEAEA',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.04,
+            shadowRadius: 10,
+            elevation: 2 
+          }}>
+            {/* 🌟 Lucide 아이콘의 타입 딴지를 피하기 위해 컴포넌트 자체를 강제 캐스팅 처리 */}
+            {React.createElement(User as any, { color: "#CCC", size: 48, style: { marginBottom: 14 } })}
+            
+            {/* 🌟 이제 상단에서 정상 임포트된 Text 컴포넌트가 아무 에러 없이 안착합니다 */}
+            <Text style={{ fontSize: 18, color: '#333', fontWeight: '700', marginBottom: 6 }}>연결된 환자가 없습니다.</Text>
+            <Text style={{ fontSize: 13, color: '#999', textAlign: 'center', lineHeight: 20 }}>
+              하단의 '환자 추가하기' 버튼을 눌러 코드를 발급받고{"\n"}환자 앱과 연동을 완료해 주세요.
+            </Text>
+          </View>
+        )}
 
         {/* 실시간 알림 피드 */}
         <SectionHeader>
