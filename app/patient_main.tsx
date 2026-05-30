@@ -7,8 +7,6 @@ import * as Device from "expo-device";
 import * as SecureStore from 'expo-secure-store'; 
 import { registerAndSendFcmToken } from "../utils/fcm"; 
 
-// ❌ 기존 고정 상수는 완전히 제거합니다.
-
 export default function PatientMain() {
   const [now, setNow] = useState(new Date());
   
@@ -29,8 +27,8 @@ export default function PatientMain() {
 
       try {
         // ① 기기 저장소(SecureStore)에 담긴 실제 연동 데이터 획득
-        const savedId = await SecureStore.getItemAsync("PATIENT_ID");
-        const savedName = await SecureStore.getItemAsync("PATIENT_NAME");
+        const savedId = await SecureStore.getItemAsync("CONNECTED_PATIENT_ID"); // 보호자 세션 변수명과 일치 처리
+        const savedName = await SecureStore.getItemAsync("CONNECTED_PATIENT_NAME");
         
         if (savedId) {
           setPatientId(savedId);
@@ -65,6 +63,35 @@ export default function PatientMain() {
     initPatientSession();
   }, []);
 
+  // 🌟 [신규 추가] 환자 앱 로그아웃 처리 함수
+  const handleLogout = () => {
+    Alert.alert(
+      "로그아웃",
+      "정말 로그아웃 하시겠습니까?\n로그아웃 시 기존 연동이 해제됩니다.",
+      [
+        { text: "취소", style: "cancel" },
+        {
+          text: "확인",
+          onPress: async () => {
+            try {
+              // 저장된 환자 연동 정보 일괄 삭제
+              await SecureStore.deleteItemAsync("CONNECTED_PATIENT_ID");
+              await SecureStore.deleteItemAsync("CONNECTED_PATIENT_NAME");
+              await SecureStore.deleteItemAsync("userRole");
+              
+              Alert.alert("로그아웃", "정상적으로 로그아웃 되었습니다.");
+              // 앱 첫 화면(인덱스)으로 튕겨내기
+              router.replace("/");
+            } catch (error) {
+              console.error("환자 로그아웃 실패:", error);
+              Alert.alert("에러", "로그아웃 처리에 실패했습니다.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
   // 🌟 4. 전화하기 버튼 클릭 시 가드 처리 핸들러 추가
   const handleCallPress = () => {
     if (!patientId) {
@@ -89,12 +116,22 @@ export default function PatientMain() {
       
       {/* 상단 헤더 영역 */}
       <View style={styles.header}>
+        {/* 🌟 로그아웃 아이콘 배치를 위해 가로 정렬(Row) 구조 적용 */}
         <View style={styles.profileRow}>
           <View>
             <Text style={styles.greeting}>안녕하세요,</Text>
             {/* 🌟 5. 하드코딩 문구를 제거하고 동적 {patientName} 변수 매칭 */}
             <Text style={styles.name}>{patientName} 어르신</Text>
           </View>
+          
+          {/* 🌟 [신규 추가] 우측 상단 순정 로그아웃 버튼 컴포넌트 */}
+          <TouchableOpacity 
+            activeOpacity={0.7} 
+            onPress={handleLogout}
+            style={styles.logoutButton}
+          >
+            <Ionicons name="log-out-outline" size={28} color="#1A1C1E" />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.timeBox}>
@@ -146,8 +183,14 @@ const styles = StyleSheet.create({
   profileRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center', // 로그아웃 아이콘과 글씨 정렬선 정돈
     marginBottom: 40,
+  },
+  // 🌟 [신규 추가] 순정 로그아웃 버튼 터치 영역 스타일링
+  logoutButton: {
+    padding: 10,
+    backgroundColor: "rgba(255,255,255,0.6)",
+    borderRadius: 50,
   },
   statusBadge: {
     backgroundColor: 'rgba(255,255,255,0.2)',
