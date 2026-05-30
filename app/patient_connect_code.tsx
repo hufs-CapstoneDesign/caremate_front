@@ -36,19 +36,21 @@ export default function PatientConnectCodeScreen() {
       console.log("🚀 백엔드 응답 원본 확인:", result);
       
       if (result) {
-        // 🌟 [핵심] 백엔드가 보내주는 'user_id'를 최우선으로 낚아챕니다!
-        const actualId = result.user_id || result.id || result.patientId || result.patient_id || result.data?.user_id || result.data?.id;
-        const actualName = result.patientName || result.name || result.patient_name || result.data?.name || "어르신";
-
-        // 💾 만약 변수명이 또 빗나가더라도 안전하게 입력한 코드를 ID 대용으로 가드 처리
+        // 🌟 [교정] 백엔드 실제 명세(user_id, name, access_token)에 정확히 맞추어 맵핑합니다.
+        const actualId = result.user_id || result.id || result.data?.user_id;
+        const actualName = result.name || result.patientName || "어르신";
+        const actualToken = result.access_token || result.token || result.data?.access_token;
+        
         const idToSave = actualId ? String(actualId) : String(trimmedCode);
 
-        // 💾 환자 메인 화면(`patient_main.tsx`)이 읽어갈 Key 이름과 정확히 일치시켜 저장!
+        // 💾 환자 메인 화면과 api.js 공통 함수가 읽어갈 Key 이름 매칭 완료
         await SecureStore.setItemAsync("CONNECTED_PATIENT_ID", idToSave);
         await SecureStore.setItemAsync("CONNECTED_PATIENT_NAME", String(actualName));
         await SecureStore.setItemAsync("userRole", "PATIENT");
+        await SecureStore.setItemAsync("patientToken", String(actualToken));
+        await SecureStore.setItemAsync("ACCESS_TOKEN", String(actualToken));
 
-        console.log("💾 SecureStore 저장 완료 데이터:", { idToSave, actualName });
+        console.log("💾 SecureStore 저장 완료 데이터:", { idToSave, actualName, tokenCheck: String(actualToken).substring(0, 10) });
 
         Alert.alert("성공", "환자 연동이 완료되었습니다.");
         router.replace("/patient_main"); // 메인 화면으로 이동
@@ -121,92 +123,17 @@ export default function PatientConnectCodeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F8F9FB",
-  },
-  header: {
-    height: 64,
-    paddingHorizontal: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#1A1C1E",
-  },
-  headerSpacer: {
-    width: 44,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 28,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  iconCircle: {
-    width: 104,
-    height: 104,
-    borderRadius: 52,
-    backgroundColor: "#EEF5FF",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 34,
-  },
-  title: {
-    fontSize: 34,
-    fontWeight: "800",
-    color: "#1A1C1E",
-    textAlign: "center",
-    lineHeight: 44,
-  },
-  description: {
-    marginTop: 18,
-    fontSize: 17,
-    color: "#718096",
-    textAlign: "center",
-    lineHeight: 27,
-    marginBottom: 44,
-  },
-  input: {
-    width: "100%",
-    height: 72,
-    borderRadius: 24,
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 24,
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#1A1C1E",
-    textAlign: "center",
-    letterSpacing: 2,
-    borderWidth: 2,
-    borderColor: "#EEF0F4",
-  },
-  submitButton: {
-    width: "100%",
-    height: 72,
-    borderRadius: 24,
-    backgroundColor: "#4A90E2",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 26,
-  },
-  disabledButton: {
-    backgroundColor: "#CBD5E1",
-  },
-  submitText: {
-    color: "#FFFFFF",
-    fontSize: 20,
-    fontWeight: "800",
-  },
+  container: { flex: 1, backgroundColor: "#F8F9FB" },
+  header: { height: 64, paddingHorizontal: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#FFFFFF", justifyContent: "center", alignItems: "center" },
+  headerTitle: { fontSize: 18, fontWeight: "800", color: "#1A1C1E" },
+  headerSpacer: { width: 44 },
+  content: { flex: 1, paddingHorizontal: 28, justifyContent: "center", alignItems: "center" },
+  iconCircle: { width: 104, height: 104, borderRadius: 52, backgroundColor: "#EEF5FF", justifyContent: "center", alignItems: "center", marginBottom: 34 },
+  title: { fontSize: 34, fontWeight: "800", color: "#1A1C1E", textAlign: "center", lineHeight: 44 },
+  description: { marginTop: 18, fontSize: 17, color: "#718096", textAlign: "center", lineHeight: 27, marginBottom: 44 },
+  input: { width: "100%", height: 72, borderRadius: 24, backgroundColor: "#FFFFFF", paddingHorizontal: 24, fontSize: 22, fontWeight: "800", color: "#1A1C1E", textAlign: "center", letterSpacing: 2, borderWidth: 2, borderColor: "#EEF0F4" },
+  submitButton: { width: "100%", height: 72, borderRadius: 24, backgroundColor: "#4A90E2", justifyContent: "center", alignItems: "center", marginTop: 26 },
+  disabledButton: { backgroundColor: "#CBD5E1" },
+  submitText: { color: "#FFFFFF", fontSize: 20, fontWeight: "800" },
 });

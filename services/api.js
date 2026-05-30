@@ -29,7 +29,9 @@ export async function requestWithToken(endpoint, payload = {}, method = "POST") 
         "Authorization": `Bearer ${activeToken}` // 보호자 또는 환자 토큰이 쏙 들어감
       },
     };
-
+    // 🌟 api.js의 options 헤더 조립 직후에 넣어주세요
+    console.log("📢 [디버깅] 현재 설정된 유저 역할(Role):", currentRole);
+    console.log("📢 [디버깅] 백엔드로 날아가는 Authorization 헤더 진짜 값:", options.headers["Authorization"]);
     // 🌟 중요: GET 방식은 규격상 body를 담아 보내면 에러를 내뱉는 백엔드가 많으므로,
     // 메서드가 GET이 아니고 페이로드(보낼 데이터)가 존재할 때만 body를 실어 보냅니다.
     if (options.method !== "GET" && payload && Object.keys(payload).length > 0) {

@@ -9,13 +9,11 @@ import {
   Text,
   TouchableOpacity,
   View,
-  Alert, // Alert 임포트 누락 방지
+  Alert, 
 } from "react-native";
-// 🌟 api.js에서 세션 시작(startSession)과 세션 종료(endSession)를 임포트합니다.
+// 🌟 1. SecureStore 라이브러리 임포트 추가 (진짜 동적 ID를 꺼내기 위함)
+import * as SecureStore from 'expo-secure-store'; 
 import { startSession, endSession } from "../services/api.js"; 
-
-// --- 상수 및 설정 ---
-const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5";
 
 type CallStatus = "connecting" | "listening" | "speaking";
 
@@ -59,7 +57,7 @@ export default function CallScreen() {
     return () => { cleanup(); };
   }, []);
 
-  // --- API 및 통신 로직 (중복 블록 및 변수 꼬임 해결) ---
+  // --- API 및 통신 로직 ---
 
   async function startCall() {
     try {
@@ -73,30 +71,51 @@ export default function CallScreen() {
         return;
       }
 
-      // 🌟 api.js의 startSession 함수를 활용하여 데이터 요청
+      // 🌟 [핵심 수정] 하드코딩 완전 제거! 방금 로그인 성공할 때 저장소에 넣은 진짜 환자 ID를 로드합니다.
+      const realPatientId = await SecureStore.getItemAsync("CONNECTED_PATIENT_ID");
+      console.log("🔑 기기에서 로드한 실제 환자 식별 ID:", realPatientId);
+
+      if (!realPatientId) {
+        Alert.alert("인증 오류", "연동된 환자 정보가 없습니다. 다시 로그인해 주세요.");
+        router.back();
+        return;
+      }
+
+      // 🌟 진짜 동적 ID를 실어서 통화 세션 요청을 발송합니다.
       const data = await startSession({
-        patient_id: PATIENT_ID,
+        patient_id: realPatientId,
         call_type: currentCallType 
       });
 
       console.log("📥 [2단계: API 응답 수신 성공] 서버 응답 상태 데이터::", data);
 
-      if (data && data.session_id && data.websocket_url) {
-        console.log("--------------------------------------------------");
-        console.log("✨ [3단계: 세션 데이터 매칭 완료] 통화 연결을 수립합니다.");
-        console.log(`   - 발급된 세션 ID : ${data.session_id}`);
-        console.log(`   - 웹소켓 연결 주소: ${data.websocket_url}`);
-        console.log("--------------------------------------------------");
+      if (data) {
+        // 🌟 백엔드가 세션 주머니 정보를 다채롭게 주더라도 낚아채도록 가드 구축
+        const actualSessionId = data.session_id || data.sessionId || data.data?.session_id || data.data?.sessionId;
+        const actualWsUrl = data.websocket_url || data.websocketUrl || data.data?.websocket_url || data.data?.websocketUrl;
 
-        setSessionId(data.session_id);
-        connectWebSocket(data.websocket_url);
+        if (actualSessionId && actualWsUrl) {
+          console.log("--------------------------------------------------");
+          console.log("✨ [3단계: 세션 데이터 매칭 완료] 통화 연결을 수립합니다.");
+          console.log(`   - 발급된 세션 ID : ${actualSessionId}`);
+          console.log(`   - 웹소켓 연결 주소: ${actualWsUrl}`);
+          console.log("--------------------------------------------------");
+
+          setSessionId(actualSessionId);
+          connectWebSocket(actualWsUrl);
+        } else {
+          console.log("⚠️ 필수 세션 정보 파싱 실패", { actualSessionId, actualWsUrl });
+          Alert.alert("연결 실패", "통화 세션 필수 정보(ID/웹소켓 URL) 파싱에 실패했습니다.");
+          router.back();
+        }
       } else {
-        console.log("⚠️ [진행 실패] 서버 응답은 성공했으나 필수 세션 정보가 누락되었습니다.");
         Alert.alert("연결 실패", "통화 세션 필수 정보를 받아오지 못했습니다.");
+        router.back();
       }
     } catch (error) {
       console.error("❌ [통화 에러] 1~3단계 통화 시작 단계 중 에러 발생:", error);
       Alert.alert("오류", "서버와 연결이 원활하지 않습니다. 다시 시도해 주세요.");
+      router.back();
     }
   }
 
@@ -134,7 +153,6 @@ export default function CallScreen() {
       console.log("5. [API 요청] 통화 종료 시도, 세션:", sessionId);
       await cleanup();
 
-      // 🌟 생짜 fetch 대신 api.js의 endSession 함수를 사용하여 통화 종료 처리
       if (sessionId) {
         const result = await endSession(sessionId);
         console.log("6. [종료 API 결과]:", result);
