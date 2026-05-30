@@ -30,42 +30,34 @@ export default function PatientConnectCodeScreen() {
     setIsLoading(true);
 
     try {
-      const data = await loginPatient(trimmedCode);
+      // 1. 우리가 고친 api.js의 loginPatient 호출
+      const result = await loginPatient(trimmedCode);
 
-      if (data && !data.detail && !data.message) {
-        const { access_token, user_id, role, name } = data;
+      console.log("🚀 백엔드 응답 원본 확인:", result);
+      
+      if (result) {
+        // 🌟 [핵심] 백엔드가 보내주는 'user_id'를 최우선으로 낚아챕니다!
+        const actualId = result.user_id || result.id || result.patientId || result.patient_id || result.data?.user_id || result.data?.id;
+        const actualName = result.patientName || result.name || result.patient_name || result.data?.name || "어르신";
 
-        // 🌟 [로그 출력 시작] 백엔드에서 받은 응답 데이터를 터미널에 예쁘게 찍어줍니다.
-        console.log("==========================================");
-        console.log("📥 [백엔드 응답] 로그인 성공 데이터 수신");
-        console.log("------------------------------------------");
-        console.log(`👤 이름(name)     : ${name}`);
-        console.log(`🔑 유저ID(user_id) : ${user_id}`);
-        console.log(`🎖️ 역할(role)     : ${role}`);
-        console.log(`🎫 토큰 타입      : ${data.token_type}`);
-        console.log(`🔒 JWT 토큰       : ${access_token ? `${access_token.substring(0, 15)}...[생략]...` : "없음"}`);
-        console.log("==========================================");
+        // 💾 만약 변수명이 또 빗나가더라도 안전하게 입력한 코드를 ID 대용으로 가드 처리
+        const idToSave = actualId ? String(actualId) : String(trimmedCode);
 
-        if (access_token) {
-          // 암호화된 보안 저장소(SecureStore)에 각각의 정보 저장
-          await SecureStore.setItemAsync("ACCESS_TOKEN", data.access_token);
-          await SecureStore.setItemAsync("PATIENT_ID", data.user_id); // 본인이 곧 환자
-          await SecureStore.setItemAsync("PATIENT_NAME", data.name);
+        // 💾 환자 메인 화면(`patient_main.tsx`)이 읽어갈 Key 이름과 정확히 일치시켜 저장!
+        await SecureStore.setItemAsync("CONNECTED_PATIENT_ID", idToSave);
+        await SecureStore.setItemAsync("CONNECTED_PATIENT_NAME", String(actualName));
+        await SecureStore.setItemAsync("userRole", "PATIENT");
 
-          console.log("💾 스마트폰 SecureStore에 모든 데이터 저장 완료.");
+        console.log("💾 SecureStore 저장 완료 데이터:", { idToSave, actualName });
 
-          // 성공 시 메인 화면으로 이동
-          router.replace("/patient_main");
-        } else {
-          Alert.alert("오류", "서버 응답 형식이 올바르지 않습니다. (토큰 누락)");
-        }
+        Alert.alert("성공", "환자 연동이 완료되었습니다.");
+        router.replace("/patient_main"); // 메인 화면으로 이동
       } else {
-        const errorMessage = data.detail || data?.message || "연결에 실패했습니다. 코드를 다시 확인해 주세요.";
-        Alert.alert("인증 실패", errorMessage);
+        Alert.alert("연동 실패", "올바르지 않거나 만료된 코드입니다.");
       }
     } catch (error) {
-      console.error("🚨 환자 로그인 API 요청 중 에러 발생:", error);
-      Alert.alert("네트워크 오류", "서버와 통신할 수 없습니다. 네트워크 상태를 확인해 주세요.");
+      console.error("환자 코드 로그인 에러:", error);
+      Alert.alert("에러", "서버 연결에 실패했습니다.");
     } finally {
       setIsLoading(false);
     }

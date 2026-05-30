@@ -3,36 +3,37 @@ import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View, SafeAreaView, StatusBar, Alert } from "react-native";
 import * as Device from "expo-device";
-// 🌟 1. SecureStore 라이브러리 임포트 추가
 import * as SecureStore from 'expo-secure-store'; 
 import { registerAndSendFcmToken } from "../utils/fcm"; 
 
 export default function PatientMain() {
+  // 🌟 now 상태 변수 정상 선언되어 있습니다! (빨간 줄 해결)
   const [now, setNow] = useState(new Date());
-  
-  // 🌟 2. 동적 처리를 위한 환자 ID 및 이름 상태(State) 선언
   const [patientId, setPatientId] = useState<string | null>(null);
   const [patientName, setPatientName] = useState<string>("어르신");
 
-  // 시간 갱신 타이머 (기존 유지)
+  // 시간 갱신 타이머
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // 🌟 3. 화면 진입 시 기기 저장소에서 정보를 꺼내고 FCM 동기화까지 순서대로 처리
+  // 화면 진입 시 기기 저장소에서 정보를 꺼내고 FCM 동기화까지 순서대로 처리
   useEffect(() => {
     const initPatientSession = async () => {
-      let currentId = null;
-
       try {
-        // ① 기기 저장소(SecureStore)에 담긴 실제 연동 데이터 획득
-        const savedId = await SecureStore.getItemAsync("CONNECTED_PATIENT_ID"); // 보호자 세션 변수명과 일치 처리
+        const savedId = await SecureStore.getItemAsync("CONNECTED_PATIENT_ID");
         const savedName = await SecureStore.getItemAsync("CONNECTED_PATIENT_NAME");
         
+        console.log("💾 메인 화면 진입 - 로컬 저장소 확인:", { savedId, savedName });
+
         if (savedId) {
           setPatientId(savedId);
-          currentId = savedId; // FCM 동기화에 바로 사용하기 위해 캐싱
+          
+          if (Device.isDevice) {
+            await registerAndSendFcmToken(savedId, "PATIENT");
+            console.log(`✅ 환자용 FCM 토큰 동기화 완료 (ID: ${savedId})`);
+          }
         }
         if (savedName) {
           setPatientName(savedName);
@@ -40,30 +41,12 @@ export default function PatientMain() {
       } catch (error) {
         console.error("❗ 기기 저장소에서 환자 정보를 가져오지 못했습니다:", error);
       }
-
-      // ② 에뮬레이터나 시뮬레이터 예외 체크 
-      if (!Device.isDevice) {
-        console.log("알림은 실제 기기(물리 디바이스)에서 테스트해야 합니다.");
-        return;
-      }
-
-      // ③ 위에서 성공적으로 식별자(ID)를 확보한 경우에만 안전하게 FCM 등록 연동
-      if (currentId) {
-        try {
-          await registerAndSendFcmToken(currentId, "PATIENT");
-          console.log(`✅ 환자용 FCM 토큰 동기화 완료 (ID: ${currentId})`);
-        } catch (error) {
-          console.error("환자 메인 FCM 등록 중 오류 발생:", error);
-        }
-      } else {
-        console.log("⚠️ 저장된 PATIENT_ID가 없어 FCM 토큰 동기화를 건너뜁니다.");
-      }
     };
 
     initPatientSession();
-  }, []);
+  }, []); 
 
-  // 🌟 [신규 추가] 환자 앱 로그아웃 처리 함수
+  // 환자 앱 로그아웃 처리 함수
   const handleLogout = () => {
     Alert.alert(
       "로그아웃",
@@ -74,13 +57,11 @@ export default function PatientMain() {
           text: "확인",
           onPress: async () => {
             try {
-              // 저장된 환자 연동 정보 일괄 삭제
               await SecureStore.deleteItemAsync("CONNECTED_PATIENT_ID");
               await SecureStore.deleteItemAsync("CONNECTED_PATIENT_NAME");
               await SecureStore.deleteItemAsync("userRole");
               
               Alert.alert("로그아웃", "정상적으로 로그아웃 되었습니다.");
-              // 앱 첫 화면(인덱스)으로 튕겨내기
               router.replace("/");
             } catch (error) {
               console.error("환자 로그아웃 실패:", error);
@@ -92,13 +73,22 @@ export default function PatientMain() {
     );
   };
 
-  // 🌟 4. 전화하기 버튼 클릭 시 가드 처리 핸들러 추가
-  const handleCallPress = () => {
+  // 전화하기 버튼 클릭 시 이중 가드 처리 핸들러
+  const handleCallPress = async () => {
     if (!patientId) {
-      Alert.alert("안내", "인증 정보가 동기화되지 않았습니다. 잠시 후 다시 시도해 주세요.");
+      console.log("⚠️ 상태값이 비어있어 저장소 직접 조회를 시도합니다.");
+      const urgentCheckId = await SecureStore.getItemAsync("CONNECTED_PATIENT_ID");
+      
+      if (urgentCheckId) {
+        setPatientId(urgentCheckId);
+        router.push("/patient_call");
+        return;
+      }
+
+      Alert.alert("안내", "인증 정보가 존재하지 않습니다. 다시 로그인(코드 입력)을 진행해 주세요.");
       return;
     }
-    // 데이터 보장이 완료되면 안전하게 통화 화면 진입
+
     router.push("/patient_call");
   };
 
@@ -116,15 +106,12 @@ export default function PatientMain() {
       
       {/* 상단 헤더 영역 */}
       <View style={styles.header}>
-        {/* 🌟 로그아웃 아이콘 배치를 위해 가로 정렬(Row) 구조 적용 */}
         <View style={styles.profileRow}>
           <View>
             <Text style={styles.greeting}>안녕하세요,</Text>
-            {/* 🌟 5. 하드코딩 문구를 제거하고 동적 {patientName} 변수 매칭 */}
             <Text style={styles.name}>{patientName} 어르신</Text>
           </View>
           
-          {/* 🌟 [신규 추가] 우측 상단 순정 로그아웃 버튼 컴포넌트 */}
           <TouchableOpacity 
             activeOpacity={0.7} 
             onPress={handleLogout}
@@ -142,7 +129,6 @@ export default function PatientMain() {
 
       {/* 하단 카드 영역 */}
       <View style={styles.cardContainer}>
-        {/* 🌟 6. 기존 라우터 다이렉트 푸시 대신 안전 장치가 마련된 핸들러 호출로 전환 */}
         <TouchableOpacity
           style={styles.mainCallCard}
           onPress={handleCallPress}
@@ -168,8 +154,9 @@ export default function PatientMain() {
       </View>
     </SafeAreaView>
   );
-}
+} // 🌟 PatientMain 컴포넌트가 여기서 정상적으로 닫힙니다.
 
+// --- 스타일 정의 영역 (styles 객체가 완벽히 선언되어 빨간 줄 해결) ---
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
@@ -183,10 +170,9 @@ const styles = StyleSheet.create({
   profileRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center', // 로그아웃 아이콘과 글씨 정렬선 정돈
+    alignItems: 'center',
     marginBottom: 40,
   },
-  // 🌟 [신규 추가] 순정 로그아웃 버튼 터치 영역 스타일링
   logoutButton: {
     padding: 10,
     backgroundColor: "rgba(255,255,255,0.6)",
