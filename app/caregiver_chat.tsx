@@ -11,6 +11,8 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, StyleSheet, TouchableOpacity, View, FlatList, Text } from 'react-native';
 import { Calendar as RNcalendar } from 'react-native-calendars';
 import { router } from "expo-router";
+import {fetchConversation} from '../services/api';
+import {Alert} from 'react-native';
 
 // --- 타입 정의 ---
 interface MessageItem {
@@ -42,39 +44,42 @@ export default function CaregiverChat() {
   const [isDropdownVisible, setDropdownVisible] = useState(false); 
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
-  useEffect(() => {
-    const fetchChatHistory = async () => {
-      if (!patient_id || !selectedDate) return;
-      setIsLoading(true);
-      try {
-        const url = `http://${process.env.EXPO_PUBLIC_API_URL}/conversations/${selectedDate}`;
-        const response = await fetch(url);
-        
-        if (response.status === 200) {
-          const data: ChatDataResponse = await response.json();
-          setChatData(data);
-          setActiveSessionIndex(0); 
-        } else {
-          // 🌟 [수정] 통화 데이터가 없는 상태(404 등)일 때 더미 데이터 대신 null 처리
-          setChatData(null);
-          setActiveSessionIndex(0);
-        }
-      } catch (error) {
-        console.error("⚠️ 대화 원본 로딩 실패:", error);
-        // 🌟 [수정] 네트워크 에러 등 실패 시에도 더미 데이터 완전 제거
-        setChatData(null);
-        setActiveSessionIndex(0);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchChatHistory();
-  }, [patient_id, selectedDate]);
-
   const hasSessions = chatData?.sessions && chatData.sessions.length > 0;
   const currentMessages = hasSessions ? chatData?.sessions?.[activeSessionIndex]?.messages || [] : [];
   
+  useEffect(() => {
+  const loadChatHistory = async () => {
+    // 라우터 파라미터나 상태값으로 전달받은 targetDate(예: selectedDate)가 없으면 실행 방지
+    if (!selectedDate) return; 
+
+    setIsLoading(true);
+    try {
+      // 🌟 1. 생짜 fetch 대신 api.js의 11번 fetchConversation 함수를 호출합니다.
+      // 인자값으로 조회하고자 하는 특정 날짜(date)를 넘겨줍니다.
+      const chatData: any = await fetchConversation(selectedDate);
+
+      if (chatData) {
+        console.log(`✅ [${selectedDate}] 대화 내역 원본 수신 성공:`, chatData);
+        
+        // 🌟 2. 서버에서 받아온 대화 배열을 채팅방 상태(State)에 바인딩합니다.
+        // 기존에 사용하시던 메시지 저장용 setState 변수명으로 매칭해 주세요. (예: setMessages)
+        setChatData(chatData); 
+      } else {
+        setChatData(null); // 데이터가 비어있으면 빈 배열 처리
+      }
+    } catch (error) {
+      console.error(`❌ [${selectedDate}] 대화 내용 조회 실패:`, error);
+      Alert.alert("오류", "대화 내역을 불러오지 못했습니다. 네트워크 상태를 확인해 주세요.");
+      setChatData(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  loadChatHistory();
+}, [selectedDate]); // 선택된 날짜가 변경될 때마다 새로운 대화 내역을 요청합니다.
+
+
   // 🌟 [수정] 세션이 없을 때 상단 바에 표시될 텍스트 방어 코드
   const currentSessionTitle = hasSessions 
     ? chatData?.sessions?.[activeSessionIndex]?.session_time || "통화 기록 선택"
