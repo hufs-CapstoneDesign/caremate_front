@@ -15,6 +15,8 @@ import { ActivityIndicator, Alert, Modal, StyleSheet, TouchableOpacity, View } f
 import { Calendar as RNcalendar } from 'react-native-calendars';
 import { router } from "expo-router";
 import {fetchReport, fetchReportByDate} from "../services/api";
+import * as SecureStore from "expo-secure-store";
+
 
 // --- 타입 정의 ---
 interface ProgressProps {
@@ -61,15 +63,22 @@ interface ReportDetail {
   } | null;
 }
 
-const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5"; 
 
 export default function CaregiverReport() {
-  const patient_id = PATIENT_ID; 
+  const [patientName, setPatientName] = useState<string>("어르신");
   const [reportDetail, setReportDetail] = useState<ReportDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCalendarVisible, setCalendarVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); 
   const [markedDates, setMarkedDates] = useState<any>({});
+
+  useEffect(() => {
+    const loadPatientInfo = async () => {
+      const savedName = await SecureStore.getItemAsync("CONNECTED_PATIENT_NAME");
+      if (savedName) setPatientName(savedName);
+    };
+    loadPatientInfo();
+  }, []);
 
   useEffect(() => {
   const loadDots = async () => {
@@ -177,7 +186,7 @@ export default function CaregiverReport() {
             <StatusBadge><StatusText>분석완료</StatusText></StatusBadge>
           </ProfileSection>
           <SummaryInfo>
-            <PatientName>김순자 어르신</PatientName>
+            <PatientName>{patientName} 어르신</PatientName>
             <MainStatus>{selectedDate} 리포트</MainStatus>
           </SummaryInfo>
         </SummaryBanner>
