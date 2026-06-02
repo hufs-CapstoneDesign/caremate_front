@@ -107,8 +107,8 @@ export async function fetchPatientInfoForPatient() {
 //calls
 
 /** 4. 보호자가 통화 요청하기  */
-export async function requestCall(callData) {
-  return await requestWithToken("calls/request", callData);
+export async function requestCall() {
+  return await requestWithToken("calls/request", {});
 }
 
 
@@ -137,13 +137,13 @@ export async function fetchReportByDate(date) {
 //schedules
 
 /** 9. 일정 조회하기 */
-export async function fetchSchedule(patientId) {
-  return await requestWithToken(`schedules/${patientId}`, {}, "GET");
+export async function fetchSchedule() {
+  return await requestWithToken(`schedules`, {}, "GET");
 }
 
 /** 10. 일정 추가하기 */
-export async function addSchedule(patientId, scheduleData) {
-  return await requestWithToken(`schedules/${patientId}`, scheduleData, "PATCH");
+export async function addSchedule(scheduleData) {
+  return await requestWithToken(`schedules`, scheduleData, "PUT");
 }
 
 //conversations
