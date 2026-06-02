@@ -11,9 +11,7 @@ import {
   View,
   Alert, 
 } from "react-native";
-// 🌟 1. SecureStore 라이브러리 임포트 추가 (진짜 동적 ID를 꺼내기 위함)
-import * as SecureStore from 'expo-secure-store'; 
-import { startSession, endSession } from "../services/api.js"; 
+import { startSession, endSession, fetchPatientInfoForPatient } from "../services/api.js"; 
 
 type CallStatus = "connecting" | "listening" | "speaking";
 
@@ -71,12 +69,13 @@ export default function CallScreen() {
         return;
       }
 
-      // 🌟 [핵심 수정] 하드코딩 완전 제거! 방금 로그인 성공할 때 저장소에 넣은 진짜 환자 ID를 로드합니다.
-      const realPatientId = await SecureStore.getItemAsync("CONNECTED_PATIENT_ID");
-      console.log("🔑 기기에서 로드한 실제 환자 식별 ID:", realPatientId);
+      // auth/me API로 환자 본인의 user_id 조회
+      const me = await fetchPatientInfoForPatient();
+      const realPatientId = me?.user_id ?? null;
+      console.log("🔑 API에서 로드한 실제 환자 ID:", realPatientId);
 
       if (!realPatientId) {
-        Alert.alert("인증 오류", "연동된 환자 정보가 없습니다. 다시 로그인해 주세요.");
+        Alert.alert("인증 오류", "환자 정보를 불러올 수 없습니다. 다시 로그인해 주세요.");
         router.back();
         return;
       }
