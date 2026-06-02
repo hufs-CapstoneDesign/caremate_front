@@ -94,9 +94,14 @@ export async function loginPatient(code) {
   return await response.json();
 }
 
-/** 환자 정보 조회 */
+/** 보호자: 환자 정보 조회 */
 export async function fetchPatientInfo(patientId) {
   return await requestWithToken(`auth/my-patients`, {}, "GET");
+}
+
+/** 환자: 환자 정보 조회 */
+export async function fetchPatientInfoForPatient() {
+  return await requestWithToken(`auth/me`, {}, "GET");
 }
 
 //calls
