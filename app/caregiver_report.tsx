@@ -14,7 +14,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Calendar as RNcalendar } from 'react-native-calendars';
 import { router } from "expo-router";
-import {fetchReport, fetchReportByDate} from "../services/api";
+import {fetchReport, fetchReportByDate, fetchPatientInfo} from "../services/api";
 import * as SecureStore from "expo-secure-store";
 
 
@@ -74,8 +74,11 @@ export default function CaregiverReport() {
 
   useEffect(() => {
     const loadPatientInfo = async () => {
-      const savedName = await SecureStore.getItemAsync("CONNECTED_PATIENT_NAME");
-      if (savedName) setPatientName(savedName);
+      const response = await fetchPatientInfo(null);
+      const patient = Array.isArray(response) ? response[0] : null;
+      if (patient?.name) {
+        setPatientName(patient.name);
+      }
     };
     loadPatientInfo();
   }, []);

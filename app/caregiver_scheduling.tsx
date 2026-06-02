@@ -4,8 +4,7 @@ import { router } from "expo-router";
 import { Calendar, ChevronLeft, Clock, Phone, X, Plus } from 'lucide-react-native';
 import styled from 'styled-components/native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import {fetchSchedule, addSchedule} from '../services/api';
-import * as SecureStore from "expo-secure-store"; // 상단에 추가
+import {fetchSchedule, addSchedule, fetchPatientInfo} from '../services/api';
 
 // --- 타입 정의 ---
 interface SelectionProps {
@@ -67,17 +66,17 @@ useEffect(() => {
       setIsLoading(true);
 
       // ✅ PATIENT_ID 상수 대신 SecureStore에서 동적으로 읽기
-      const savedId = await SecureStore.getItemAsync("CONNECTED_PATIENT_ID");
-      console.log("🔑 CONNECTED_PATIENT_ID:", savedId); // 여기 추가
+      const response_info = await fetchPatientInfo(null);
+      const patient = Array.isArray(response_info) ? response_info[0] : null;
 
-      if (!savedId) {
+      if (!patient?.patient_id) {
         Alert.alert("안내", "연결된 환자가 없습니다.");
         router.back();
         return;
       }
-      setPatientId(savedId);
+      setPatientId(patient.patient_id);
 
-      const response = await fetchSchedule(savedId); // ✅ savedId 사용
+      const response = await fetchSchedule(patient.patient_id); // ✅ savedId 사용
       
       if (response && response.schedule_list) {
         const mappedSchedules = response.schedule_list.map((item: any, index: number) => ({

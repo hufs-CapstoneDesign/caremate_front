@@ -5,6 +5,7 @@ import { StyleSheet, Text, TouchableOpacity, View, SafeAreaView, StatusBar, Aler
 import * as Device from "expo-device";
 import * as SecureStore from 'expo-secure-store'; 
 import { registerAndSendFcmToken } from "../utils/fcm"; 
+import { fetchPatientInfoForPatient } from "../services/api"; // 🌟 환자 정보 조회 API 추가
 
 export default function PatientMain() {
   // 🌟 now 상태 변수 정상 선언되어 있습니다! (빨간 줄 해결)
@@ -22,27 +23,29 @@ export default function PatientMain() {
   useEffect(() => {
     const initPatientSession = async () => {
       try {
-        const savedId = await SecureStore.getItemAsync("CONNECTED_PATIENT_ID");
-        const savedName = await SecureStore.getItemAsync("CONNECTED_PATIENT_NAME");
-        
-        console.log("💾 메인 화면 진입 - 로컬 저장소 확인:", { savedId, savedName });
+        // [1단계] API로 본인 정보 조회
+        // 응답: { user_id, name, role, guardian_id }
+        const me = await fetchPatientInfoForPatient();
 
-        if (savedId) {
-          setPatientId(savedId);
-          
+        if (me?.user_id) {
+          setPatientId(me.user_id);
+          setPatientName(me.name ?? "어르신");
+          console.log("✅ 환자 정보 로드 성공:", me);
+
+          // [2단계] FCM 토큰 등록 (인증 토큰만 SecureStore에서 조회)
           if (Device.isDevice) {
             const patientToken = await SecureStore.getItemAsync("patientToken");
             if (patientToken) {
               await registerAndSendFcmToken(patientToken, "PATIENT");
             }
-            console.log(`✅ 환자용 FCM 토큰 동기화 완료 (ID: ${savedId})`);
+            console.log(`✅ 환자용 FCM 토큰 동기화 완료 (ID: ${me.user_id})`);
           }
-        }
-        if (savedName) {
-          setPatientName(savedName);
+        } else {
+          console.warn("환자 정보가 없습니다.");
         }
       } catch (error) {
-        console.error("❗ 기기 저장소에서 환자 정보를 가져오지 못했습니다:", error);
+        console.error("❗ 환자 정보 API 호출 실패:", error);
+        Alert.alert("오류", "환자 정보를 불러오지 못했습니다. 네트워크를 확인해 주세요.");
       }
     };
 
@@ -60,8 +63,6 @@ export default function PatientMain() {
           text: "확인",
           onPress: async () => {
             try {
-              await SecureStore.deleteItemAsync("CONNECTED_PATIENT_ID");
-              await SecureStore.deleteItemAsync("CONNECTED_PATIENT_NAME");
               await SecureStore.deleteItemAsync("userRole");
               await SecureStore.deleteItemAsync("patientToken"); // ✅ 이거 추가
               
@@ -80,16 +81,7 @@ export default function PatientMain() {
   // 전화하기 버튼 클릭 시 이중 가드 처리 핸들러
   const handleCallPress = async () => {
     if (!patientId) {
-      console.log("⚠️ 상태값이 비어있어 저장소 직접 조회를 시도합니다.");
-      const urgentCheckId = await SecureStore.getItemAsync("CONNECTED_PATIENT_ID");
-      
-      if (urgentCheckId) {
-        setPatientId(urgentCheckId);
-        router.push("/patient_call");
-        return;
-      }
-
-      Alert.alert("안내", "인증 정보가 존재하지 않습니다. 다시 로그인(코드 입력)을 진행해 주세요.");
+      Alert.alert("안내", "인증 정보가 존재하지 않습니다. 다시 로그인을 진행해 주세요.");
       return;
     }
 
