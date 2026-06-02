@@ -5,7 +5,7 @@ import { TouchableOpacity, View, ScrollView, Alert, ActivityIndicator, Text } fr
 import styled from 'styled-components/native';
 import * as SecureStore from "expo-secure-store"; // 🌟 토큰 조회를 위해 추가
 import { registerAndSendFcmToken } from "../utils/fcm"; // 🌟 공통 FCM 함수 추가 (경로 확인 필요)
-import {requestCall} from "../services/api.js"; // 🌟 API 호출 함수 추가 (경로 확인 필요)
+import {fetchPatientInfo, requestCall} from "../services/api.js"; // 🌟 API 호출 함수 추가 (경로 확인 필요)
 import * as Notifications from 'expo-notifications'; // 🌟 실시간 푸시 알림 감지를 위해 추가
 
 // --- 백엔드 연결을 위한 설정 ---
@@ -64,27 +64,30 @@ const handleLogout = () => {
   // 🌟 기기 저장소에서 환자 정보를 읽어오고, 로드 완료 후 FCM 토큰을 동기화합니다.
   useEffect(() => {
     const initializeCaregiverSession = async () => {
-      let currentPatientId = null;
+      // [1단계] 환자 정보 API 호출
+      // 응답: [{ patient_id: string, name: string }]
+      let currentPatientId: string | null = null;
 
       try {
-        const savedId = await SecureStore.getItemAsync("CONNECTED_PATIENT_ID");
-        const savedName = await SecureStore.getItemAsync("CONNECTED_PATIENT_NAME");
+        const response = await fetchPatientInfo(null);
+        const patient = Array.isArray(response) ? response[0] : null;
         
-        if (savedId) {
-          setPatientId(savedId);
-          currentPatientId = savedId;
-        }
-        if (savedName) {
-          setPatientName(savedName);
+        if (patient?.patient_id) {
+          setPatientId(patient.patient_id);
+          setPatientName(patient.name ?? null);
+          currentPatientId = patient.patient_id;
+          console.log("✅ 환자 정보 로드 성공:", patient);
+        } else {
+          console.warn("연결된 환자가 없습니다.");
         }
       } catch (error) {
-        console.error("보호자 기기 정보 로드 실패:", error);
+        console.error("환자 정보 API 호출 실패:", error);
+        Alert.alert("오류", "환자 정보를 불러오지 못했습니다. 네트워크를 확인해 주세요.");
       }
 
-      // 🌟 [에러 수정] currentPatientId를 첫 번째 인자로 넘겨주어 'Expected 2 arguments, but got 0' 에러 완벽 해결
+      // [2단계] 환자 ID 확보 후 FCM 토큰 등록
       if (currentPatientId) {
         try {
-          // ✅ 수정
           const caregiverToken = await SecureStore.getItemAsync("userToken");
           if (caregiverToken) {
             await registerAndSendFcmToken(caregiverToken, "CAREGIVER");
