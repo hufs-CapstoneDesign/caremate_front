@@ -1,50 +1,42 @@
 import { router } from "expo-router";
 import { CheckCircle } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
-// ActivityIndicator를 react-native 순정으로 가져와 에러를 방지합니다.
-import { Alert, TouchableOpacity, ActivityIndicator } from "react-native";
+import React, { useState } from "react";
+import { Alert, ActivityIndicator } from "react-native";
 import styled from "styled-components/native";
 import { useAddPatientStore } from "@/store/addPatientStore";
-const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5"; 
-
-const API_URL = `http://${process.env.EXPO_PUBLIC_API_URL}/${PATIENT_ID}/profile`;
+import * as SecureStore from "expo-secure-store";
+import { invitePatient } from "../../services/api.js"; // 프로젝트 실제 경로에 맞게 수정하세요.
 
 export default function AddPatientCodeScreen() {
-  const setCode = useAddPatientStore((state) => state.setCode);
   const resetStore = useAddPatientStore((state) => state.reset);
   const allData = useAddPatientStore((state) => state);
 
+  // 백엔드로부터 응답받을 코드를 저장할 상태
   const [finalCode, setFinalCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 화면 진입 시 5자리 대문자 조합 코드 발행 및 스토어 동기화
-  useEffect(() => {
-    const generatedCode = 
-      Math.random().toString(36).substring(2, 5).toUpperCase() + 
-      Math.random().toString(36).substring(2, 4).toUpperCase();
+  // 🚀 백엔드 규격에 맞는 Nested JSON 구조 일괄 전송 및 코드 발급 함수
+  const handleFetchCodeAndSubmit = async () => {
+    // 이미 코드를 성공적으로 받았거나 요청 중이면 중복 실행 방지
+    if (finalCode) {
+      handleGoToMain();
+      return;
+    }
     
-    setFinalCode(generatedCode);
-    setCode(generatedCode);
-  }, []);
-
-  // 백엔드 규격에 맞는 Nested JSON 구조 일괄 전송 함수
-  const handleFinalSubmit = async () => {
-    if (!finalCode || isSubmitting) return;
     setIsSubmitting(true);
 
-    // 백엔드가 요청한 "basic_info" 중첩 구조로 직조
+    // 백엔드가 요청한 "basic_info" 중첩 구조로 데이터 패킹
     const finalPayload = {
       basic_info: {
         name: allData.name,
-        age: Number(allData.age) || 0,           // 나이를 숫자로 변환
-        guardian_relationship: allData.relation, // 보호자 관계
-        patient_status: allData.severity,        // 환자 상태(중증도)
-        symptoms: allData.symptoms,              // 선택된 증상 리스트 배열
+        age: Number(allData.age) || 0,           
+        guardian_relationship: allData.relation, 
+        patient_status: allData.severity,        
+        symptoms: allData.symptoms,              
       },
       familyMembers: allData.familyMembers,
       contacts: allData.contacts,
       medication: allData.medication,
-      code: finalCode, 
     };
 
     console.log("================ [백엔드 요청 규격 JSON 페이로드] ================");
@@ -52,27 +44,34 @@ export default function AddPatientCodeScreen() {
     console.log("==========================================================");
 
     try {
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(finalPayload),
-      });
+      // 🔒 api.js를 통해 데이터 전송 (이미 가공된 result 객체가 반환됩니다)
+      const result = await invitePatient(finalPayload);
+      console.log("환자 초대 API 응답:", result);
 
-      if (response.ok) {
-        console.log("환자 정보 일괄 전송 성공!");
-        resetStore(); // 가방 완전히 비우기
-        router.replace("/caregiver_main"); // 메인으로 이동
+      console.log("================ [백엔드 응답 데이터 수신] ================");
+      console.log(JSON.stringify(result, null, 2));
+      console.log("==========================================================");
+
+      // 백엔드에서 내려주는 다양한 코드 변수명 대응
+      const generatedCode = result.invitation_code || result.code || result.patient_code;
+      if (generatedCode) {
+        setFinalCode(generatedCode); // 받아온 코드를 상태에 저장하여 카드에 반영
+        Alert.alert("성공", "환자 등록 및 인증 코드 발급이 완료되었습니다.");
       } else {
-        Alert.alert("등록 실패", "서버 저장 도중 문제가 발생했습니다.");
+        Alert.alert("확인", "환자 정보는 저장되었으나 발급된 코드를 확인할 수 없습니다.");
       }
     } catch (error) {
-      console.error("네트워크 에러 발생:", error);
-      Alert.alert("네트워크 오류", "서버와 통신할 수 없습니다.");
+      console.error("🚨 네트워크 에러 발생:", error);
+      Alert.alert("네트워크 오류", "서버와 통신할 수 없습니다. 백엔드 서버 상태를 확인하세요.");
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // 🧹 메인 화면으로 이동 시 주스탠드 상태 가방 비우기 분리 함수
+  const handleGoToMain = () => {
+    resetStore(); // 가방 완전히 비우기
+    router.replace("/caregiver_main"); // 보호자 메인 홈으로 이동
   };
 
   return (
@@ -82,25 +81,27 @@ export default function AddPatientCodeScreen() {
           <CheckCircle size={56} color="#4A90E2" />
         </IconCircle>
 
-        <Title>연결 코드 발급 완료!</Title>
+        <Title>{finalCode ? "연결 코드 발급 완료!" : "환자 정보 전송하기"}</Title>
 
         <Sub>
-          환자분 계정에서 코드를 입력하면{"\n"}
-          보호자 계정과 연결됩니다.
+          {finalCode 
+            ? `환자분 계정에서 아래 코드를 입력하면\n보호자 계정과 최종 연결됩니다.`
+            : `작성하신 환자 기본 정보 및 복약 정보를\n서버에 안전하게 등록합니다.`}
         </Sub>
 
-        <CodeCard>
+        <CodeCard style={{ opacity: finalCode ? 1 : 0.4 }}>
           <CodeLabel>연결 코드</CodeLabel>
-          <CodeText>{finalCode || "생성 중..."}</CodeText>
+          <CodeText>{finalCode || "발급 대기 중"}</CodeText>
         </CodeCard>
       </Content>
 
       <BottomArea>
-        <NextButton onPress={handleFinalSubmit} disabled={isSubmitting}>
+        {/* 🌟 finalCode가 있으면 handleGoToMain 실행, 텍스트는 '등록 완료'로 변경 */}
+        <NextButton onPress={finalCode ? handleGoToMain : handleFetchCodeAndSubmit} disabled={isSubmitting}>
           {isSubmitting ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <NextText>보호자 홈으로</NextText>
+            <NextText>{finalCode ? "등록 완료" : "환자 등록 및 코드 받기"}</NextText>
           )}
         </NextButton>
       </BottomArea>
@@ -109,7 +110,7 @@ export default function AddPatientCodeScreen() {
 }
 
 // ==========================================
-// ✨ 스타일드 컴포넌트 최종 완성 코드
+// ✨ 스타일드 컴포넌트 의상실 (UI 100% 동일 유지)
 // ==========================================
 const Container = styled.SafeAreaView`
   flex: 1;

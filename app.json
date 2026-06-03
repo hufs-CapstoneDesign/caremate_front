@@ -20,6 +20,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "package": "com.caremate.app",
+      "googleServicesFile": "google-services.json",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
@@ -41,7 +42,11 @@
           }
         }
       ],
-      "@react-native-community/datetimepicker"
+      [
+        "expo-notifications"
+      ],  
+      "@react-native-community/datetimepicker",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -4,9 +4,7 @@ import { router } from "expo-router";
 import { Calendar, ChevronLeft, Clock, Phone, X, Plus } from 'lucide-react-native';
 import styled from 'styled-components/native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import axios from 'axios';
-
-const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5";
+import {fetchSchedule, addSchedule, fetchPatientInfo} from '../services/api';
 
 // --- 타입 정의 ---
 interface SelectionProps {
@@ -14,30 +12,29 @@ interface SelectionProps {
 }
 
 interface ScheduleItem {
-  id: string;   // API의 schedule_id 또는 신규 등록용 임시 ID
-  day: string;  // '월', '화', '수' 등
-  time: Date;   // 화면 표시 및 피커 연동용 Date 객체
+  id: string;   
+  day: string;  
+  time: Date;   
 }
 
-// 백엔드 응답 객체 구조 정의 (추후 요일 필드명이 변경되면 이곳을 수정하세요)
 interface ApiResponseSchedule {
   schedule_id: string;
-  time: string;       // "09:00", "14:00" 등 (HH:mm)
-  dayOfWeek?: string; // 요일별 조회를 위해 추가 요청하신 요일 필드 가동
+  time: string;       
+  dayOfWeek?: number; 
 }
 
 const GuardianAISetting = () => {
   const [isEnabled, setIsEnabled] = useState(true);
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+  const [patientId, setPatientId] = useState<string | null>(null); // ✅ 추가
+
   const [currentDay, setCurrentDay] = useState('월');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
 
   const days = ['월', '화', '수', '목', '금', '토', '일'];
 
-  // 12시간제 포맷 변환 함수 (화면 표시용: 오전/오후 hh:mm)
   const formatTime = (date: Date) => {
     let hours = date.getHours();
     const minutes = date.getMinutes();
@@ -48,14 +45,12 @@ const GuardianAISetting = () => {
     return `${ampm} ${hours}:${strMinutes}`;
   };
 
-  // 백엔드 전송/비교용 시간 포맷 변환 (HH:mm)
   const formatBackendTime = (date: Date) => {
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
     return `${hours}:${minutes}`;
   };
 
-  // HH:mm 문자열을 받아 오늘 날짜 기준의 Date 객체로 변환
   const parseBackendTimeToDate = (timeStr: string) => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     const date = new Date();
@@ -65,50 +60,49 @@ const GuardianAISetting = () => {
     return date;
   };
 
-  // 1. [조회] API 명세서 기반 기존 스케줄 데이터 가져오기
-  useEffect(() => {
-    const fetchExistingSchedules = async () => {
-      try {
-        setIsLoading(true);
-        // 명세서 규격: GET /schedules/{patient_id}
-        const response = await axios.get(`http://${process.env.EXPO_PUBLIC_API_URL}/schedules/${PATIENT_ID}`);
-        
-        if (response.data && response.data.schedules) {
-          // 명세서의 "schedules" 내부 리스트 파싱
-          const mappedSchedules = response.data.schedules.map((item: ApiResponseSchedule, index: number) => {
-            return {
-              // 백엔드에서 준 schedule_id를 고유 key로 매핑 (없을 시 대안 id 생성)
-              id: item.schedule_id || `existing_${index}_${Date.now()}`,
-              // 추후 추가될 요일 필드 연동 (기본값 '월')
-              day: item.dayOfWeek || '월', 
-              time: parseBackendTimeToDate(item.time)
-            };
-          });
+useEffect(() => {
+  const fetchExistingSchedules = async () => {
+    try {
+      setIsLoading(true);
 
-          // 요일 순으로 정렬하여 세팅
-          const sortedSchedules = mappedSchedules.sort((a: ScheduleItem, b: ScheduleItem) => {
-            return days.indexOf(a.day) - days.indexOf(b.day);
-          });
-          
-          setSchedules(sortedSchedules);
-        }
-      } catch (error) {
-        console.error("기존 스케줄 로딩 실패:", error);
-        // API 연동 실패 혹은 데이터 없을 시 예외 처리용 더미 데이터
-        const dummySchedules: ScheduleItem[] = [
-          { id: 'uuid-1', day: '월', time: parseBackendTimeToDate('09:00') },
-          { id: 'uuid-2', day: '화', time: parseBackendTimeToDate('14:00') },
-        ];
-        setSchedules(dummySchedules);
-      } finally {
-        setIsLoading(false);
+      // ✅ PATIENT_ID 상수 대신 SecureStore에서 동적으로 읽기
+      const response_info = await fetchPatientInfo(null);
+      const patient = Array.isArray(response_info) ? response_info[0] : null;
+
+      if (!patient?.patient_id) {
+        Alert.alert("안내", "연결된 환자가 없습니다.");
+        router.back();
+        return;
       }
-    };
+      setPatientId(patient.patient_id);
 
-    fetchExistingSchedules();
-  }, []);
+      const response = await fetchSchedule(); // ✅ savedId 사용
+      
+      if (response && response.schedule_list) {
+        const mappedSchedules = response.schedule_list.map((item: any, index: number) => ({
+          id: item.schedule_id || `existing_${index}_${Date.now()}`,
+          day: item.day_of_week !== undefined ? days[item.day_of_week] : '월',
+          time: parseBackendTimeToDate(item.call_time)
+        }));
 
-  // 시간 변경 이벤트 핸들러
+        const sortedSchedules = mappedSchedules.sort((a: any, b: any) =>
+          days.indexOf(a.day) - days.indexOf(b.day)
+        );
+        setSchedules(sortedSchedules);
+      } else {
+        setSchedules([]);
+      }
+    } catch (error) {
+      console.error("🚨 [스케줄 API 에러]:", error);
+      setSchedules([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  fetchExistingSchedules();
+}, []);
+
   const onTimeChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     setShowPicker(Platform.OS === 'ios');
     if (selectedDate) {
@@ -116,8 +110,7 @@ const GuardianAISetting = () => {
     }
   };
 
-  // 스케줄 추가 함수
-  const addSchedule = () => {
+  const submitSchedule = () => {
     const isDuplicate = schedules.some(
       (item) => item.day === currentDay && 
       item.time.getHours() === currentTime.getHours() && 
@@ -130,7 +123,7 @@ const GuardianAISetting = () => {
     }
 
     const newSchedule: ScheduleItem = {
-      id: `new_${Date.now()}`, // 신규 생성 항목 임시 고유 ID
+      id: `new_${Date.now()}`, 
       day: currentDay,
       time: currentTime,
     };
@@ -142,40 +135,41 @@ const GuardianAISetting = () => {
     setSchedules(updated);
   };
 
-  // 스케줄 삭제 함수 (기존 내역 및 신규 추가 내역 모두 X 클릭 시 삭제 가능)
   const removeSchedule = (id: string) => {
     setSchedules(schedules.filter((item) => item.id !== id));
   };
 
-  // 2. [수정 및 저장] 변경사항 최종 반영 후 서버 전송
   const handleSaveSchedules = async () => {
     if (isEnabled && schedules.length === 0) {
       Alert.alert('안내', '최소 하나 이상의 요일별 시간대를 추가해주세요.');
       return;
     }
 
-    // 전송할 페이로드 구성
-    const payload = {
-      aiCallEnabled: isEnabled,
-      schedules: isEnabled ? schedules.map(item => ({
-        // 기존에 발급받았던 ID가 있으면 유지하고, 신규 데이터면 보낼 때 제외하거나 임시 처리 가능
-        schedule_id: item.id.startsWith('new_') ? null : item.id,
-        dayOfWeek: item.day, // 백엔드 확장 필드 명칭에 맞춰 전송
-        time: formatBackendTime(item.time)
-      })) : []
-    };
-
-    console.log("=== 서버 전송 최종 데이터 ===", JSON.stringify(payload, null, 2));
-
     try {
-      // 기존 명세서 기반 저장 API 통신 (POST 또는 PUT 프로젝트 규칙에 따라 사용)
-      await axios.post(`http://${process.env.EXPO_PUBLIC_API_URL}/schedules/${PATIENT_ID}`, payload);
-      
-      Alert.alert('성공', 'AI 안부 전화 설정이 수정되었습니다.', [
-        { text: '확인', onPress: () => router.push("/caregiver_main") }
-      ]);
+      // 🌟 API 규격에 맞춰 PATIENT_ID와 payload를 인자로 넘겨주고 결과 데이터를 바로 받습니다.
+      const payload = {
+        ai_call_enabled: isEnabled,
+        schedule_list: isEnabled ? schedules.map(item => ({
+        // 기존에 발급받았던 ID가 있으면 유지하고, 신규 데이터면 보낼 때 제외하거나 임시 처리 가능
+          day_of_week: days.indexOf(item.day), // 백엔드 확장 필드 명칭에 맞춰 전송
+          call_time: formatBackendTime(item.time)
+        })) : []
+      };
+
+      const data: any = await addSchedule(payload);
+
+      if (data) {
+        console.log("✅ 일정 수정 성공:", data);
+        Alert.alert("안내", "일정이 성공적으로 수정되었습니다.", [
+          {
+            text: "확인",
+            onPress: () => router.push("/caregiver_main"),
+          },
+        ]);
+      }
     } catch (error) {
-      Alert.alert('오류', '설정 저장 중 문제가 발생했습니다.');
+      console.error("❌ 일정 수정 중 오류 발생:", error);
+      Alert.alert("오류", "일정을 수정하지 못했습니다. 다시 시도해 주세요.");
     }
   };
 
@@ -189,7 +183,6 @@ const GuardianAISetting = () => {
 
   return (
     <Container>
-      {/* 상단 헤더 */}
       <Header>
         <TouchableOpacity onPress={() => router.push("/caregiver_main")}>
           <ChevronLeft color="#333" size={24} />
@@ -199,7 +192,6 @@ const GuardianAISetting = () => {
       </Header>
 
       <Content showsVerticalScrollIndicator={false}>
-        {/* 메인 스위치 */}
         <SettingSection>
           <Row>
             <SectionInfo>
@@ -220,14 +212,12 @@ const GuardianAISetting = () => {
 
         {isEnabled && (
           <>
-            {/* 요일 및 시간 지정 영역 */}
             <SettingSection>
               <LabelRow>
                 <Calendar size={18} color="#666" />
                 <LabelText>요일 및 시간 추가/수정</LabelText>
               </LabelRow>
               
-              {/* 요일 선택 */}
               <DayContainer>
                 {days.map((day) => (
                   <DayButton
@@ -240,7 +230,6 @@ const GuardianAISetting = () => {
                 ))}
               </DayContainer>
 
-              {/* 시간 설정 버튼 */}
               <TimePickerButton onPress={() => setShowPicker(true)}>
                 <LabelRow style={{ marginBottom: 0 }}>
                   <Clock size={16} color="#4A90E2" />
@@ -254,19 +243,21 @@ const GuardianAISetting = () => {
                   value={currentTime}
                   mode="time"
                   is24Hour={false}
+                  minuteInterval={10}
+                  // 🌟 [수정] iOS 다크모드/테마 이슈로 글씨가 안 보이는 현상 완벽 방지
+                  textColor="#000000" 
+                  themeVariant="light"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   onChange={onTimeChange}
                 />
               )}
 
-              {/* 추가 버튼 */}
-              <AddScheduleButton onPress={addSchedule} activeOpacity={0.7}>
+              <AddScheduleButton onPress={submitSchedule} activeOpacity={0.7}>
                 <Plus size={16} color="#FFF" />
                 <AddButtonText>이 시간대에 발신 추가</AddButtonText>
               </AddScheduleButton>
             </SettingSection>
 
-            {/* 최종 스케줄 리스트 박스 영역 */}
             <SettingSection>
               <LabelRow style={{ marginBottom: 10 }}>
                 <SectionTitle style={{ fontSize: 15 }}>현재 설정된 알림 스케줄 목록</SectionTitle>
@@ -276,7 +267,8 @@ const GuardianAISetting = () => {
               </SectionDesc>
               
               {schedules.length === 0 ? (
-                <EmptyText>설정된 발신 시간대가 없습니다. 위에서 요일과 시간을 지정해 추가해 주세요.</EmptyText>
+                // 🌟 [수정] 더미 데이터가 없으므로 스케줄이 빌 때 정상적으로 출력됩니다.
+                <EmptyText>아직 설정된 발신 스케줄이 없습니다.</EmptyText>
               ) : (
                 <ScheduleGrid>
                   {schedules.map((item) => (
@@ -294,7 +286,6 @@ const GuardianAISetting = () => {
           </>
         )}
 
-        {/* 저장 버튼 */}
         <SaveButton activeOpacity={0.8} onPress={handleSaveSchedules}>
           <SaveButtonText>수정된 설정 저장하기</SaveButtonText>
         </SaveButton>
@@ -305,7 +296,6 @@ const GuardianAISetting = () => {
 
 export default GuardianAISetting;
 
-// --- 스타일 정의 ---
 // --- 스타일 정의 ---
 const Container = styled.SafeAreaView`
   flex: 1;
@@ -467,20 +457,19 @@ const ScheduleTag = styled.View`
   flex-direction: row;
   align-items: center;
   background-color: #F0F5FF;
-  border-width: 1px;
-  border-color: #D6E4FF;
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: 20px;
   margin-right: 8px;
   margin-bottom: 8px;
+  border-width: 1px;
+  border-color: #D6E4FF;
 `;
 
-/* --- 빨간 줄 생겼던 컴포넌트 선언부 시작 --- */
 const TagDayText = styled.Text`
   font-size: 13px;
   font-weight: 700;
   color: #4A90E2;
-  margin-right: 6px;
+  margin-right: 4px;
 `;
 
 const TagTimeText = styled.Text`
@@ -494,25 +483,23 @@ const DeleteIconButton = styled.TouchableOpacity`
 `;
 
 const EmptyText = styled.Text`
-  font-size: 13px;
+  font-size: 14px;
   color: #999;
   text-align: center;
   padding: 20px 0;
-  line-height: 18px;
 `;
-/* --- 빨간 줄 생겼던 컴포넌트 선언부 끝 --- */
 
 const SaveButton = styled.TouchableOpacity`
   background-color: #4A90E2;
-  padding: 18px;
+  padding: 16px;
   border-radius: 16px;
   align-items: center;
-  margin-top: 20px;
+  margin-top: 10px;
   margin-bottom: 40px;
 `;
 
 const SaveButtonText = styled.Text`
-  font-size: 17px;
-  font-weight: 700;
   color: #FFF;
+  font-size: 16px;
+  font-weight: 700;
 `;

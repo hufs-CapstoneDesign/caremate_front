@@ -3,14 +3,16 @@ import {
   Calendar as CalendarIcon,
   Bot,
   User,
-  ChevronDown, // 드롭다운 화살표용 아이콘 추가
-  Check // 선택된 세션 표시용 아이콘 추가
+  ChevronDown, 
+  Check 
 } from 'lucide-react-native';
 import styled from 'styled-components/native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, StyleSheet, TouchableOpacity, View, FlatList, Text } from 'react-native';
 import { Calendar as RNcalendar } from 'react-native-calendars';
 import { router } from "expo-router";
+import {fetchConversation} from '../services/api';
+import {Alert} from 'react-native';
 
 // --- 타입 정의 ---
 interface MessageItem {
@@ -33,40 +35,6 @@ interface ChatDataResponse {
 
 const PATIENT_ID = "6d3ef730-2ac9-4290-8db2-31859bcc49a5";
 
-// 하드코딩된 3개의 가상 세션 데이터
-const DUMMY_RESPONSE: ChatDataResponse = {
-  chat_date: "2026-05-23",
-  sessions: [
-    {
-      session_id: "session_01",
-      session_time: "오전 10:02 (아침 통화)",
-      messages: [
-        { id: 'm1_1', sender: 'ai', time: '오전 10:02', text: '안녕하세요, 순자 어르신! 오늘 아침 식사는 맛있게 하셨나요?' },
-        { id: 'm1_2', sender: 'patient', time: '오전 10:03', text: '응, 대충 물에 밥 말아서 김치랑 먹었어.' },
-        { id: 'm1_3', sender: 'ai', time: '오전 10:03', text: '아침 약도 잊지 않고 챙겨 드셨을까요?' },
-        { id: 'm1_4', sender: 'patient', time: '오전 10:04', text: '약? 아 맞다, 깜빡할 뻔했네. 지금 먹어야겠다.' }
-      ]
-    },
-    {
-      session_id: "session_02",
-      session_time: "오후 02:15 (점심 통화)",
-      messages: [
-        { id: 'm2_1', sender: 'ai', time: '오후 02:15', text: '순자 어르신, 점심 식사 후 가벼운 산책은 다녀오셨나요?' },
-        { id: 'm2_2', sender: 'patient', time: '오후 02:17', text: '날이 좀 희끄무리해서 그냥 경로당에서 노인네들이랑 놀았어.' },
-        { id: 'm2_3', sender: 'ai', time: '오후 02:18', text: '친구분들과 즐거운 시간 보내셨군요! 물 자주 드시는 것 잊지 마세요.' }
-      ]
-    },
-    {
-      session_id: "session_03",
-      session_time: "오후 07:30 (저녁 통화)",
-      messages: [
-        { id: 'm3_1', sender: 'ai', time: '오후 07:30', text: '어르신, 저녁은 든든하게 챙겨 드셨나요?' },
-        { id: 'm3_2', sender: 'patient', time: '오후 07:32', text: '티비 보면서 대충 고구마 쪄 먹었지.' }
-      ]
-    }
-  ]
-};
-
 export default function CaregiverChat() {
   const patient_id = PATIENT_ID;
   const [chatData, setChatData] = useState<ChatDataResponse | null>(null);
@@ -76,36 +44,46 @@ export default function CaregiverChat() {
   const [isDropdownVisible, setDropdownVisible] = useState(false); 
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
+  const hasSessions = chatData?.sessions && chatData.sessions.length > 0;
+  const currentMessages = hasSessions ? chatData?.sessions?.[activeSessionIndex]?.messages || [] : [];
+  
   useEffect(() => {
-    const fetchChatHistory = async () => {
-      if (!patient_id || !selectedDate) return;
-      setIsLoading(true);
-      try {
-        const url = `http://172.30.1.16:8000/chats/${patient_id}/${selectedDate}`;
-        const response = await fetch(url);
+  const loadChatHistory = async () => {
+    // 라우터 파라미터나 상태값으로 전달받은 targetDate(예: selectedDate)가 없으면 실행 방지
+    if (!selectedDate) return; 
+
+    setIsLoading(true);
+    try {
+      // 🌟 1. 생짜 fetch 대신 api.js의 11번 fetchConversation 함수를 호출합니다.
+      // 인자값으로 조회하고자 하는 특정 날짜(date)를 넘겨줍니다.
+      const chatData: any = await fetchConversation(selectedDate);
+
+      if (chatData) {
+        console.log(`✅ [${selectedDate}] 대화 내역 원본 수신 성공:`, chatData);
         
-        if (response.status === 200) {
-          const data: ChatDataResponse = await response.json();
-          setChatData(data);
-          setActiveSessionIndex(0); 
-        } else {
-          setChatData(DUMMY_RESPONSE);
-          setActiveSessionIndex(0);
-        }
-      } catch (error) {
-        console.error("⚠️ 대화 원본 로딩 실패:", error);
-        setChatData(DUMMY_RESPONSE);
-        setActiveSessionIndex(0);
-      } finally {
-        setIsLoading(false);
+        // 🌟 2. 서버에서 받아온 대화 배열을 채팅방 상태(State)에 바인딩합니다.
+        // 기존에 사용하시던 메시지 저장용 setState 변수명으로 매칭해 주세요. (예: setMessages)
+        setChatData(chatData); 
+      } else {
+        setChatData(null); // 데이터가 비어있으면 빈 배열 처리
       }
-    };
+    } catch (error) {
+      console.error(`❌ [${selectedDate}] 대화 내용 조회 실패:`, error);
+      Alert.alert("오류", "대화 내역을 불러오지 못했습니다. 네트워크 상태를 확인해 주세요.");
+      setChatData(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    fetchChatHistory();
-  }, [patient_id, selectedDate]);
+  loadChatHistory();
+}, [selectedDate]); // 선택된 날짜가 변경될 때마다 새로운 대화 내역을 요청합니다.
 
-  const currentMessages = chatData?.sessions?.[activeSessionIndex]?.messages || [];
-  const currentSessionTitle = chatData?.sessions?.[activeSessionIndex]?.session_time || "통화 기록 선택";
+
+  // 🌟 [수정] 세션이 없을 때 상단 바에 표시될 텍스트 방어 코드
+  const currentSessionTitle = hasSessions 
+    ? chatData?.sessions?.[activeSessionIndex]?.session_time || "통화 기록 선택"
+    : "통화 기록 없음";
 
   const renderChatItem = ({ item }: { item: MessageItem }) => {
     const isAI = item.sender === 'ai';
@@ -157,7 +135,7 @@ export default function CaregiverChat() {
         </TouchableOpacity>
       </Modal>
 
-      {/* 💡 스타일 수정: 독립적인 모서리가 둥근 파란 테두리 박스 영역 */}
+      {/* 상단 바 선택 영역 */}
       <SelectorWrapper>
         <DropdownSelector onPress={() => setDropdownVisible(true)}>
           <DropdownSelectorText>{selectedDate} ㆍ {currentSessionTitle}</DropdownSelectorText>
@@ -172,22 +150,28 @@ export default function CaregiverChat() {
             <DropdownHeader>
               <DropdownHeaderTitle>확인할 통화 선택</DropdownHeaderTitle>
             </DropdownHeader>
-            {chatData?.sessions?.map((session, index) => {
-              const isSelected = index === activeSessionIndex;
-              return (
-                <DropdownItem 
-                  key={session.session_id} 
-                  isSelected={isSelected}
-                  onPress={() => {
-                    setActiveSessionIndex(index);
-                    setDropdownVisible(false);
-                  }}
-                >
-                  <DropdownItemText isSelected={isSelected}>{session.session_time}</DropdownItemText>
-                  {isSelected && <Check size={16} color="#4A90E2" />}
-                </DropdownItem>
-              );
-            })}
+            
+            {/* 🌟 [수정] 통화 기록(세션)이 없을 때 표시할 모달 내 텍스트 컴포넌트 추가 */}
+            {!hasSessions ? (
+              <EmptyDropdownText>확인할 수 있는 통화 기록이 없습니다.</EmptyDropdownText>
+            ) : (
+              chatData?.sessions?.map((session, index) => {
+                const isSelected = index === activeSessionIndex;
+                return (
+                  <DropdownItem 
+                    key={session.session_id} 
+                    isSelected={isSelected}
+                    onPress={() => {
+                      setActiveSessionIndex(index);
+                      setDropdownVisible(false);
+                    }}
+                  >
+                    <DropdownItemText isSelected={isSelected}>{session.session_time}</DropdownItemText>
+                    {isSelected && <Check size={16} color="#4A90E2" />}
+                  </DropdownItem>
+                );
+              })
+            )}
           </DropdownSheetContainer>
         </TouchableOpacity>
       </Modal>
@@ -205,6 +189,7 @@ export default function CaregiverChat() {
           contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
+            // 🌟 [수정] 데이터가 비었을 때 출력될 UI
             <EmptyView>
               <EmptyText>해당 날짜의 통화 기록이 없습니다.</EmptyText>
             </EmptyView>
@@ -226,23 +211,20 @@ const Container = styled.SafeAreaView` flex: 1; background-color: #F8F9FB; `;
 const Header = styled.View` flex-direction: row; justify-content: space-between; align-items: center; padding: 15px 20px; background-color: #FFF; border-bottom-width: 1px; border-bottom-color: #F0F2F5; `;
 const HeaderTitle = styled.Text` font-size: 18px; font-weight: 700; color: #333; `;
 
-// 💡 변경 핵심: 상단 바에 여백을 주기 위한 외부 Wrapper 추가
 const SelectorWrapper = styled.View`
   padding: 16px 20px 8px 20px;
 `;
 
-// 💡 변경 핵심: 독립된 라운드 카드 형태 + 파란색 테두리(border) 스타일 적용
 const DropdownSelector = styled.TouchableOpacity`
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
-  background-color: #FFF;               /* 배경을 깔끔한 흰색 카드로 변경 */
+  background-color: #FFF;               
   padding: 14px 18px;
-  border-radius: 14px;                  /* 모서리를 리포트 NoticeBox와 맞춰 둥글게 가공 */
-  border-width: 1.2px;                  /* 얇은 테두리 선 생성 */
-  border-color: rgba(74, 144, 226, 0.4); /* 연하고 세련된 테마 파란색 테두리 지정 */
+  border-radius: 14px;                  
+  border-width: 1.2px;                  
+  border-color: rgba(74, 144, 226, 0.4); 
   
-  /* 리포트 카드들과 일치하는 은은한 그림자 효과 */
   shadow-color: #4A90E2;
   shadow-offset: 0px 2px;
   shadow-opacity: 0.06;
@@ -253,10 +235,9 @@ const DropdownSelector = styled.TouchableOpacity`
 const DropdownSelectorText = styled.Text` 
   font-size: 13px; 
   font-weight: 600; 
-  color: #4A90E2;                       /* 텍스트 칼라도 테마 색상 블루로 포인트 변경 */
+  color: #4A90E2;                       
 `;
 
-// 하단 팝업 시트 형태의 드롭다운 컨테이너 스타일
 const DropdownSheetContainer = styled.View`
   background-color: #FFF;
   border-top-left-radius: 24px;
@@ -281,7 +262,6 @@ const DropdownItemText = styled.Text<{ isSelected: boolean }>`
   color: ${props => props.isSelected ? '#4A90E2' : '#555'};
 `;
 
-// 메시지 레이아웃 스타일
 const MessageContainer = styled.View<{ isAI: boolean }>` flex-direction: ${props => props.isAI ? 'row' : 'row-reverse'}; margin-bottom: 20px; align-items: flex-start; `;
 const AvatarWrapper = styled.View<{ isAI: boolean }>` width: 36px; height: 36px; border-radius: 12px; background-color: ${props => props.isAI ? '#F0F7FF' : '#FFF9F2'}; justify-content: center; align-items: center; margin-left: ${props => props.isAI ? '0px' : '10px'}; margin-right: ${props => props.isAI ? '10px' : '0px'}; border-width: 1px; border-color: ${props => props.isAI ? '#E0EFFF' : '#FFEAD2'}; `;
 const MessageBodyWrapper = styled.View<{ isAI: boolean }>` flex: 1; align-items: ${props => props.isAI ? 'flex-start' : 'flex-end'}; `;
@@ -292,3 +272,11 @@ const ChatText = styled.Text<{ isAI: boolean }>` font-size: 14px; line-height: 2
 const TimeText = styled.Text` font-size: 10px; color: #999; margin-left: 6px; margin-right: 6px; margin-bottom: 2px; `;
 const EmptyView = styled.View` flex: 1; align-items: center; justify-content: center; padding-top: 100px; `;
 const EmptyText = styled.Text` font-size: 14px; color: #999; `;
+
+// 🌟 [추정 추가] 드롭다운 전용 비어있음 스타일 컴포넌트
+const EmptyDropdownText = styled.Text`
+  font-size: 14px;
+  color: #999;
+  text-align: center;
+  padding: 24px 0;
+`;
