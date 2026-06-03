@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "96948524277",
+    "project_id": "caremate-64364",
+    "storage_bucket": "caremate-64364.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:96948524277:android:aa414268b4f722009461bc",
+        "android_client_info": {
+          "package_name": "com.caremate.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCJ7b5JU9kL2D3qK58o9y9DA4GrOf8ity0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
