@@ -82,7 +82,6 @@ export default function CallScreen() {
 
       // 🌟 진짜 동적 ID를 실어서 통화 세션 요청을 발송합니다.
       const data = await startSession({
-        patient_id: realPatientId,
         call_type: currentCallType 
       });
 
