@@ -44,11 +44,8 @@ export default function PatientConnectCodeScreen() {
         const idToSave = actualId ? String(actualId) : String(trimmedCode);
 
         // 💾 환자 메인 화면과 api.js 공통 함수가 읽어갈 Key 이름 매칭 완료
-        await SecureStore.setItemAsync("CONNECTED_PATIENT_ID", idToSave);
-        await SecureStore.setItemAsync("CONNECTED_PATIENT_NAME", String(actualName));
         await SecureStore.setItemAsync("userRole", "PATIENT");
         await SecureStore.setItemAsync("patientToken", String(actualToken));
-        await SecureStore.setItemAsync("ACCESS_TOKEN", String(actualToken));
 
         console.log("💾 SecureStore 저장 완료 데이터:", { idToSave, actualName, tokenCheck: String(actualToken).substring(0, 10) });
 

@@ -158,9 +158,7 @@ const handleLogout = () => {
 
       // 🌟 1. 생짜 fetch 대신 정확한 API인 requestCall 함수를 호출합니다.
       // 인자값으로 백엔드가 원하는 patient_id와 call_type 구조를 그대로 넘겨줍니다.
-      const result = await requestCall({
-        patient_id: patientId,
-      });
+      const result = await requestCall();
 
       console.log("통화 요청 API 응답:", result);
 
@@ -276,7 +274,7 @@ const handleLogout = () => {
             {/* 🌟 이제 상단에서 정상 임포트된 Text 컴포넌트가 아무 에러 없이 안착합니다 */}
             <Text style={{ fontSize: 18, color: '#333', fontWeight: '700', marginBottom: 6 }}>연결된 환자가 없습니다.</Text>
             <Text style={{ fontSize: 13, color: '#999', textAlign: 'center', lineHeight: 20 }}>
-              하단의 '환자 추가하기' 버튼을 눌러 코드를 발급받고{"\n"}환자 앱과 연동을 완료해 주세요.
+              하단의 '어르신 추가하기' 버튼을 눌러 코드를 발급받고{"\n"}환자 앱과 연동을 완료해 주세요.
             </Text>
           </View>
         )}
@@ -318,15 +316,17 @@ const handleLogout = () => {
         )}
 
         {/* 환자 추가 버튼 */}
-        <AddPatientButton
-          activeOpacity={0.6}
-          onPress={() => router.push("/caregiver_add_patient")}
-        >
-          <PlusIconWrapper>
-            <Plus color="#9CA3AF" size={24} />
-          </PlusIconWrapper>
-          <AddPatientText fontSize={18}>내 환자 추가하기</AddPatientText>
-        </AddPatientButton>
+        {!patientId && (
+          <AddPatientButton
+            activeOpacity={0.6}
+            onPress={() => router.push("/caregiver_add_patient")}
+          >
+            <PlusIconWrapper>
+              <Plus color="#9CA3AF" size={24} />
+            </PlusIconWrapper>
+            <AddPatientText fontSize={18}>어르신 추가하기</AddPatientText>
+          </AddPatientButton>
+        )}
       </Content>
     </Container>
   );
