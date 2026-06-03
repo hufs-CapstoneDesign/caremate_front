@@ -39,8 +39,8 @@ export default function StartScreen() {
         <View style={styles.logoContainer}>
           <Heart size={44} color="#4A90E2" fill="#4A90E2" />
         </View>
-        <Text style={styles.title}>마음연결</Text>
-        <Text style={styles.subtitle}>실시간 AI 부모님 케어 서비스</Text>
+        <Text style={styles.title}>Caremate</Text>
+        <Text style={styles.subtitle}>실시간 AI 어르신 케어 서비스</Text>
         <View style={styles.descriptionBox}>
           <Text style={styles.description}>
             부모님의 말벗이 되어드리는 AI 케어봇과{"\n"}실시간 상태 알림을 통해 소중한 가족을 지키세요.
@@ -84,7 +84,7 @@ export default function StartScreen() {
             <Heart size={24} color="#4ADE80" />
           </View>
           <View style={styles.cardTextBox}>
-            <Text style={styles.cardTitle}>환자(어르신) 앱 시작</Text>
+            <Text style={styles.cardTitle}>어르신 앱 시작</Text>
             <Text style={styles.cardDesc}>AI 케어봇 말벗 통화 기능 제공</Text>
           </View>
         </TouchableOpacity>
