@@ -9,11 +9,11 @@ import { useAddPatientStore } from "@/store/addPatientStore";
 type Medication = "하루 1회" | "하루 2회" | "하루 3회" | "하루 4회 이상" | "기타" | "";
 
 const MEDICATION_OPTIONS = [
-  { value: "하루 1회", title: "하루 1회", description: "주로 아침에 한 번" },
-  { value: "하루 2회", title: "하루 2회", description: "아침과 저녁" },
-  { value: "하루 3회", title: "하루 3회", description: "아침, 점심, 저녁" },
-  { value: "하루 4회 이상", title: "하루 4회 이상", description: "매끼 및 취침 전" },
-  { value: "기타", title: "기타", description: "정해진 시간 없이 복용" },
+  { value: "하루 1회", title: "하루 1회" },
+  { value: "하루 2회", title: "하루 2회" },
+  { value: "하루 3회", title: "하루 3회"},
+  { value: "하루 4회 이상", title: "하루 4회 이상"},
+  { value: "기타", title: "기타"},
 ] as const;
 
 export default function AddPatientMedicationScreen() {
@@ -69,7 +69,7 @@ export default function AddPatientMedicationScreen() {
               >
                 <TextGroup>
                   <OptionTitle selected={selected}>{item.title}</OptionTitle>
-                  <OptionDescription>{item.description}</OptionDescription>
+                  {/* <OptionDescription>{item.description}</OptionDescription> */}
                 </TextGroup>
 
                 <Radio selected={selected}>
