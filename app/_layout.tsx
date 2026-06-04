@@ -1,4 +1,4 @@
-import messaging from "@react-native-firebase/messaging"; // 🌟 FCM 임포트
+import messaging from "@react-native-firebase/messaging";
 import {
   DarkTheme,
   DefaultTheme,
@@ -6,6 +6,7 @@ import {
 } from "@react-navigation/native";
 import * as Notifications from "expo-notifications";
 import { NotificationHandler } from "expo-notifications";
+import * as SecureStore from "expo-secure-store";
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
@@ -56,6 +57,13 @@ export default function RootLayout() {
       async (remoteMessage) => {
         console.log("📱 [Foreground] 알림 수신:", remoteMessage);
 
+        const userRole = await SecureStore.getItemAsync("userRole");
+        const msgType = remoteMessage.data?.type;
+
+        // 역할에 맞지 않는 FCM 무시
+        if (userRole === "PATIENT" && msgType !== "AI_CALL") return;
+        if (userRole === "CAREGIVER" && msgType !== "NO_REPLY") return;
+
         await Notifications.scheduleNotificationAsync({
           content: {
             title: remoteMessage.notification?.title ?? "AI 전화",
@@ -66,7 +74,7 @@ export default function RootLayout() {
           trigger: null,
         });
 
-        if (remoteMessage.data?.type === "AI_CALL") {
+        if (userRole === "PATIENT" && msgType === "AI_CALL") {
           router.replace({
             pathname: "/patient_incoming_call",
             params: {
@@ -82,10 +90,12 @@ export default function RootLayout() {
 
     // ✅ 2. Background: 앱이 백그라운드에 있을 때 배너 클릭으로 앱 열림
     const unsubscribeBackground = messaging().onNotificationOpenedApp(
-      (remoteMessage) => {
+      async (remoteMessage) => {
         console.log("📂 [Background] 알림 클릭으로 앱 열림:", remoteMessage);
+        const userRole = await SecureStore.getItemAsync("userRole");
         const data = remoteMessage.data;
-        if (data?.type === "AI_CALL") {
+
+        if (userRole === "PATIENT" && data?.type === "AI_CALL") {
           router.replace("/patient_incoming_call");
         }
       },
@@ -94,11 +104,13 @@ export default function RootLayout() {
     // ✅ 3. Killed: 앱이 완전히 종료된 상태에서 배너 클릭 시
     messaging()
       .getInitialNotification()
-      .then((remoteMessage) => {
+      .then(async (remoteMessage) => {
         if (remoteMessage) {
           console.log("🚀 [Killed] 알림 클릭으로 앱 최초 실행:", remoteMessage);
+          const userRole = await SecureStore.getItemAsync("userRole");
           const data = remoteMessage.data;
-          if (data?.type === "AI_CALL") {
+
+          if (userRole === "PATIENT" && data?.type === "AI_CALL") {
             setTimeout(() => {
               router.replace("/patient_incoming_call");
             }, 500);
