@@ -40,6 +40,7 @@ export default function AddPatientCodeScreen() {
     };
 
     console.log("================ [백엔드 요청 규격 JSON 페이로드] ================");
+    console.log("최종 전송 데이터 구조:");
     console.log(JSON.stringify(finalPayload, null, 2));
     console.log("==========================================================");
 
