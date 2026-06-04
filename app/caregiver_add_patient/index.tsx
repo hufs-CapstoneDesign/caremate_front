@@ -29,6 +29,7 @@ export default function AddPatientBasicInfo() {
       relation,
     });
 
+    console.log("기초 정보 전역 저장 완료:", { name, age, relation });
     router.push("/caregiver_add_patient/symptom");
   };
 

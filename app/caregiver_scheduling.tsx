@@ -76,7 +76,7 @@ useEffect(() => {
       }
       setPatientId(patient.patient_id);
 
-      const response = await fetchSchedule(patient.patient_id); // ✅ savedId 사용
+      const response = await fetchSchedule(); // ✅ savedId 사용
       
       if (response && response.schedule_list) {
         const mappedSchedules = response.schedule_list.map((item: any, index: number) => ({
@@ -156,15 +156,20 @@ useEffect(() => {
         })) : []
       };
 
-      const data: any = await addSchedule(patientId, payload);
+      const data: any = await addSchedule(payload);
 
       if (data) {
-        console.log("✅ 일정 추가 성공:", data);
-        // 이후 성공 시 처리할 UI 로직 (예: 모달 닫기, 새로고침 등)을 작성하세요.
+        console.log("✅ 일정 수정 성공:", data);
+        Alert.alert("안내", "일정이 성공적으로 수정되었습니다.", [
+          {
+            text: "확인",
+            onPress: () => router.push("/caregiver_main"),
+          },
+        ]);
       }
     } catch (error) {
-      console.error("❌ 일정 추가 중 오류 발생:", error);
-      Alert.alert("오류", "일정을 추가하지 못했습니다. 다시 시도해 주세요.");
+      console.error("❌ 일정 수정 중 오류 발생:", error);
+      Alert.alert("오류", "일정을 수정하지 못했습니다. 다시 시도해 주세요.");
     }
   };
 

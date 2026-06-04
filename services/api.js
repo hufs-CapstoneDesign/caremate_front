@@ -119,7 +119,7 @@ export async function startSession(callData) {
 
 /** 6. 통화 종료하기 */
 export async function endSession(sessionId) {
-  return await requestWithToken(`calls/${sessionId}`, {});
+  return await requestWithToken(`calls/${sessionId}`, {}, 'PATCH');
 }
 
 //reports
