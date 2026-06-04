@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import * as SecureStore from "expo-secure-store";
+import { loginPatient} from "../services/api.js";
 
 export default function PatientConnectCodeScreen() {
   const [code, setCode] = useState("");
@@ -29,56 +30,33 @@ export default function PatientConnectCodeScreen() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`http://${process.env.EXPO_PUBLIC_API_URL}/auth/login-with-code`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          patient_code: trimmedCode,
-        }),
-      });
+      // 1. 우리가 고친 api.js의 loginPatient 호출
+      const result = await loginPatient(trimmedCode);
 
-      const data = await response.json();
+      console.log("🚀 백엔드 응답 원본 확인:", result);
+      
+      if (result) {
+        // 🌟 [교정] 백엔드 실제 명세(user_id, name, access_token)에 정확히 맞추어 맵핑합니다.
+        const actualId = result.user_id || result.id || result.data?.user_id;
+        const actualName = result.name || result.patientName || "어르신";
+        const actualToken = result.access_token || result.token || result.data?.access_token;
+        
+        const idToSave = actualId ? String(actualId) : String(trimmedCode);
 
-      if (response.status === 200) {
-        const { access_token, user_id, role, name } = data;
+        // 💾 환자 메인 화면과 api.js 공통 함수가 읽어갈 Key 이름 매칭 완료
+        await SecureStore.setItemAsync("userRole", "PATIENT");
+        await SecureStore.setItemAsync("patientToken", String(actualToken));
 
-        // 🌟 [로그 출력 시작] 백엔드에서 받은 응답 데이터를 터미널에 예쁘게 찍어줍니다.
-        console.log("==========================================");
-        console.log("📥 [백엔드 응답] 로그인 성공 데이터 수신");
-        console.log("------------------------------------------");
-        console.log(`👤 이름(name)     : ${name}`);
-        console.log(`🔑 유저ID(user_id) : ${user_id}`);
-        console.log(`🎖️ 역할(role)     : ${role}`);
-        console.log(`🎫 토큰 타입      : ${data.token_type}`);
-        console.log(`🔒 JWT 토큰       : ${access_token ? `${access_token.substring(0, 15)}...[생략]...` : "없음"}`);
-        console.log("==========================================");
-        // 🌟 [로그 출력 끝]
+        console.log("💾 SecureStore 저장 완료 데이터:", { idToSave, actualName, tokenCheck: String(actualToken).substring(0, 10) });
 
-        if (access_token) {
-          // 암호화된 보안 저장소(SecureStore)에 각각의 정보 저장
-          await SecureStore.setItemAsync("userRole", "PATIENT");
-          await SecureStore.setItemAsync("patientToken", access_token);
-          
-          if (user_id) await SecureStore.setItemAsync("userId", user_id);
-          if (role) await SecureStore.setItemAsync("userRole", role);
-          if (name) await SecureStore.setItemAsync("userName", name);
-
-          console.log("💾 스마트폰 SecureStore에 모든 데이터 저장 완료.");
-
-          // 성공 시 메인 화면으로 이동
-          router.replace("/patient_main");
-        } else {
-          Alert.alert("오류", "서버 응답 형식이 올바르지 않습니다.");
-        }
+        Alert.alert("성공", "환자 연동이 완료되었습니다.");
+        router.replace("/patient_main"); // 메인 화면으로 이동
       } else {
-        const errorMessage = data.detail || "연결에 실패했습니다. 코드를 다시 확인해 주세요.";
-        Alert.alert("인증 실패", errorMessage);
+        Alert.alert("연동 실패", "올바르지 않거나 만료된 코드입니다.");
       }
     } catch (error) {
-      console.error("🚨 환자 로그인 API 요청 중 에러 발생:", error);
-      Alert.alert("네트워크 오류", "서버와 통신할 수 없습니다. 네트워크 상태를 확인해 주세요.");
+      console.error("환자 코드 로그인 에러:", error);
+      Alert.alert("에러", "서버 연결에 실패했습니다.");
     } finally {
       setIsLoading(false);
     }
@@ -114,7 +92,7 @@ export default function PatientConnectCodeScreen() {
 
         <TextInput
           style={styles.input}
-          placeholder="5자리 연결 코드 입력"
+          placeholder="연결 코드 입력"
           placeholderTextColor="#A0AEC0"
           value={code}
           onChangeText={setCode}
@@ -142,92 +120,17 @@ export default function PatientConnectCodeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F8F9FB",
-  },
-  header: {
-    height: 64,
-    paddingHorizontal: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#1A1C1E",
-  },
-  headerSpacer: {
-    width: 44,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 28,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  iconCircle: {
-    width: 104,
-    height: 104,
-    borderRadius: 52,
-    backgroundColor: "#EEF5FF",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 34,
-  },
-  title: {
-    fontSize: 34,
-    fontWeight: "800",
-    color: "#1A1C1E",
-    textAlign: "center",
-    lineHeight: 44,
-  },
-  description: {
-    marginTop: 18,
-    fontSize: 17,
-    color: "#718096",
-    textAlign: "center",
-    lineHeight: 27,
-    marginBottom: 44,
-  },
-  input: {
-    width: "100%",
-    height: 72,
-    borderRadius: 24,
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 24,
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#1A1C1E",
-    textAlign: "center",
-    letterSpacing: 2,
-    borderWidth: 2,
-    borderColor: "#EEF0F4",
-  },
-  submitButton: {
-    width: "100%",
-    height: 72,
-    borderRadius: 24,
-    backgroundColor: "#4A90E2",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 26,
-  },
-  disabledButton: {
-    backgroundColor: "#CBD5E1",
-  },
-  submitText: {
-    color: "#FFFFFF",
-    fontSize: 20,
-    fontWeight: "800",
-  },
+  container: { flex: 1, backgroundColor: "#F8F9FB" },
+  header: { height: 64, paddingHorizontal: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  backButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#FFFFFF", justifyContent: "center", alignItems: "center" },
+  headerTitle: { fontSize: 18, fontWeight: "800", color: "#1A1C1E" },
+  headerSpacer: { width: 44 },
+  content: { flex: 1, paddingHorizontal: 28, justifyContent: "center", alignItems: "center" },
+  iconCircle: { width: 104, height: 104, borderRadius: 52, backgroundColor: "#EEF5FF", justifyContent: "center", alignItems: "center", marginBottom: 34 },
+  title: { fontSize: 34, fontWeight: "800", color: "#1A1C1E", textAlign: "center", lineHeight: 44 },
+  description: { marginTop: 18, fontSize: 17, color: "#718096", textAlign: "center", lineHeight: 27, marginBottom: 44 },
+  input: { width: "100%", height: 72, borderRadius: 24, backgroundColor: "#FFFFFF", paddingHorizontal: 24, fontSize: 22, fontWeight: "800", color: "#1A1C1E", textAlign: "center", letterSpacing: 2, borderWidth: 2, borderColor: "#EEF0F4" },
+  submitButton: { width: "100%", height: 72, borderRadius: 24, backgroundColor: "#4A90E2", justifyContent: "center", alignItems: "center", marginTop: 26 },
+  disabledButton: { backgroundColor: "#CBD5E1" },
+  submitText: { color: "#FFFFFF", fontSize: 20, fontWeight: "800" },
 });
