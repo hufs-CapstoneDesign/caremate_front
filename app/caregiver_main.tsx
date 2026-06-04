@@ -5,7 +5,7 @@ import { TouchableOpacity, View, ScrollView, Alert, ActivityIndicator, Text } fr
 import styled from 'styled-components/native';
 import * as SecureStore from "expo-secure-store"; // 🌟 토큰 조회를 위해 추가
 import { registerAndSendFcmToken } from "../utils/fcm"; // 🌟 공통 FCM 함수 추가 (경로 확인 필요)
-import {fetchPatientInfo, requestCall} from "../services/api.js"; // 🌟 API 호출 함수 추가 (경로 확인 필요)
+import {fetchPatientInfo, requestCall, fetchNotifications} from "../services/api.js"; // 🌟 API 호출 함수 추가 (경로 확인 필요)
 import * as Notifications from 'expo-notifications'; // 🌟 실시간 푸시 알림 감지를 위해 추가
 
 // --- 백엔드 연결을 위한 설정 ---
@@ -100,6 +100,42 @@ const handleLogout = () => {
     };
 
     initializeCaregiverSession();
+
+    // 로그인 후 미수신 알림 내역 불러오기
+    const loadMissedCallNotifications = async () => {
+      try {
+        const missed = await fetchNotifications();
+        if (!Array.isArray(missed) || missed.length === 0) return;
+
+        const missedNotiList = missed.map((item: any) => {
+          const date = new Date(item.scheduled_at);
+          const timeString = `[${date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: true })}]`;
+          const body = `${item.patient_name} 어르신 전화 미수신`;
+
+          return {
+            id: item.notifications_id,
+            isUrgent: true,
+            text: `${timeString} ${body}`,
+            time: date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' }),
+            date: date,
+            backgroundColor: '#FFF0F0',
+          };
+        });
+
+        setNotifications(prev => {
+          const merged = [...missedNotiList, ...prev];
+          const threeDaysAgo = new Date();
+          threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+          return merged.filter(noti => new Date(noti.date) >= threeDaysAgo);
+        });
+
+        console.log("✅ 미수신 알림 로드 완료:", missedNotiList.length, "건");
+      } catch (error) {
+        console.error("미수신 알림 불러오기 실패:", error);
+      }
+    };
+
+    loadMissedCallNotifications();
   }, []);
 
   // 🌟 앱이 열려있을 때 날아오는 실시간 FCM 알림을 감지하는 리스너

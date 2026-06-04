@@ -1,5 +1,5 @@
-import { decode as base64Decode, encode as base64Encode } from "base-64";
 import * as AudioStream from "@mykin-ai/expo-audio-stream";
+import { decode as base64Decode, encode as base64Encode } from "base-64";
 import { Audio } from "expo-av";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -65,9 +65,8 @@ export default function CallScreen() {
   const pendingPcmRef = useRef<Uint8Array>(new Uint8Array());
   const isMicOnRef = useRef(false);
   const micOnPendingRef = useRef(false);
-  const textQueueRef = useRef<string[]>([]);  // 문장 텍스트 큐
-
-
+  const textQueueRef = useRef<string[]>([]);
+  const sentenceEndRef = useRef(false); // SENTENCE_END 받았으면 다음 PCM 첫 청크 때 텍스트 교체
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -198,15 +197,13 @@ export default function CallScreen() {
 
       // 청크 재생 완료 구독 — 마지막 청크 재생 끝나면 마이크 켜기
       soundChunkSubscriptionRef.current =
-        ExpoPlayAudioStream.subscribeToSoundChunkPlayed(
-          async (event: any) => {
-            if (event.isFinal && micOnPendingRef.current) {
-              micOnPendingRef.current = false;
-              console.log("🔊 마지막 청크 재생 완료 → 마이크 켜기");
-              await startMicStreaming();
-            }
-          },
-        );
+        ExpoPlayAudioStream.subscribeToSoundChunkPlayed(async (event: any) => {
+          if (event.isFinal && micOnPendingRef.current) {
+            micOnPendingRef.current = false;
+            console.log("🔊 마지막 청크 재생 완료 → 마이크 켜기");
+            await startMicStreaming();
+          }
+        });
 
       startMicStreaming();
     };
@@ -217,7 +214,8 @@ export default function CallScreen() {
 
         if (event.data === "MIC_OFF") {
           await stopMicStreaming();
-          textQueueRef.current = [];  // 큐 초기화
+          textQueueRef.current = [];
+          sentenceEndRef.current = false;
           setStatus("speaking");
           return;
         }
@@ -228,25 +226,40 @@ export default function CallScreen() {
         }
 
         if (event.data === "SENTENCE_END") {
-          const next = textQueueRef.current.shift();
-          if (next) {
-            setAiMessage(next);
-            setStatus("speaking");
-            console.log("📥 [문장 표시]:", next);
-          }
+          // 다음 PCM 첫 청크 올 때 텍스트 바꿀 준비만 함
+          sentenceEndRef.current = true;
+          console.log("📥 [SENTENCE_END] 다음 PCM 첫 청크 때 텍스트 교체 준비");
           return;
         }
 
-        // 문장 텍스트 수신 → 큐에만 쌓기 (표시는 SENTENCE_END 때)
+        // 문장 텍스트 → 큐에 쌓기
         textQueueRef.current.push(event.data);
-        console.log("📥 [문장 큐에 추가]:", event.data, "/ 큐 길이:", textQueueRef.current.length);
+        console.log(
+          "📥 [문장 큐에 추가]:",
+          event.data,
+          "/ 큐 길이:",
+          textQueueRef.current.length,
+        );
         return;
       }
 
       if (event.data instanceof ArrayBuffer) {
         const pcmChunk = new Uint8Array(event.data);
+
+        if (sentenceEndRef.current || !aiMessage) {
+          sentenceEndRef.current = false;
+
+          const next = textQueueRef.current.shift();
+          if (next) {
+            setAiMessage(next);
+            setStatus("speaking");
+            console.log("📥 [오디오 시작과 함께 문장 표시]:", next);
+          }
+        }
+
         const base64Pcm = uint8ArrayToBase64(pcmChunk);
         await ExpoPlayAudioStream.playAudio(base64Pcm, "16000");
+
         console.log("📥 PCM chunk 수신 및 재생:", pcmChunk.length);
       }
     };

@@ -152,3 +152,8 @@ export async function addSchedule(scheduleData) {
 export async function fetchConversation(date) {
   return await requestWithToken(`conversations/${date}`, {}, "GET");
 }
+
+/** 알림 불러오기 */
+export async function fetchNotifications() {
+  return await requestWithToken(`schedules/missed-calls`, {}, "GET");
+}
