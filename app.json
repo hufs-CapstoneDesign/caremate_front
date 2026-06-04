@@ -44,9 +44,10 @@
       ],
       [
         "expo-notifications"
-      ],  
+      ],
       "@react-native-community/datetimepicker",
-      "expo-secure-store"
+      "expo-secure-store",
+      "@mykin-ai/expo-audio-stream"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
+    "@mykin-ai/expo-audio-stream": "^0.3.5",
     "@notifee/react-native": "^9.1.8",
     "@react-native-community/datetimepicker": "^8.4.4",
     "@react-native-firebase/app": "^24.0.0",
@@ -22,7 +23,6 @@
     "axios": "^1.16.1",
     "base-64": "^1.0.0",
     "expo": "~54.0.33",
-    "expo-audio-stream": "^0.1.13",
     "expo-av": "~16.0.8",
     "expo-constants": "~18.0.13",
     "expo-dev-client": "~6.0.21",
