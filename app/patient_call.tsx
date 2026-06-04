@@ -1,7 +1,6 @@
 import { decode as base64Decode, encode as base64Encode } from "base-64";
-import * as AudioStream from "expo-audio-stream";
+import * as AudioStream from "@mykin-ai/expo-audio-stream";
 import { Audio } from "expo-av";
-import * as FileSystem from "expo-file-system/legacy";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -62,11 +61,13 @@ export default function CallScreen() {
   const CHUNK_SIZE = 4096;
 
   const audioSubscriptionRef = useRef<{ remove: () => void } | null>(null);
+  const soundChunkSubscriptionRef = useRef<{ remove: () => void } | null>(null);
   const pendingPcmRef = useRef<Uint8Array>(new Uint8Array());
   const isMicOnRef = useRef(false);
+  const micOnPendingRef = useRef(false);
+  const textQueueRef = useRef<string[]>([]);  // 문장 텍스트 큐
 
-  const pendingAiTextRef = useRef("");
-  const mp3ChunksRef = useRef<Uint8Array[]>([]);
+
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -194,6 +195,19 @@ export default function CallScreen() {
     ws.onopen = () => {
       console.log("✅ [WS 연결 성공]");
       socketRef.current = ws;
+
+      // 청크 재생 완료 구독 — 마지막 청크 재생 끝나면 마이크 켜기
+      soundChunkSubscriptionRef.current =
+        ExpoPlayAudioStream.subscribeToSoundChunkPlayed(
+          async (event: any) => {
+            if (event.isFinal && micOnPendingRef.current) {
+              micOnPendingRef.current = false;
+              console.log("🔊 마지막 청크 재생 완료 → 마이크 켜기");
+              await startMicStreaming();
+            }
+          },
+        );
+
       startMicStreaming();
     };
 
@@ -203,30 +217,37 @@ export default function CallScreen() {
 
         if (event.data === "MIC_OFF") {
           await stopMicStreaming();
+          textQueueRef.current = [];  // 큐 초기화
           setStatus("speaking");
           return;
         }
 
         if (event.data === "MIC_ON") {
-          await playCollectedMp3();
-          await startMicStreaming();
+          micOnPendingRef.current = true;
           return;
         }
 
-        pendingAiTextRef.current = event.data;
+        if (event.data === "SENTENCE_END") {
+          const next = textQueueRef.current.shift();
+          if (next) {
+            setAiMessage(next);
+            setStatus("speaking");
+            console.log("📥 [문장 표시]:", next);
+          }
+          return;
+        }
+
+        // 문장 텍스트 수신 → 큐에만 쌓기 (표시는 SENTENCE_END 때)
+        textQueueRef.current.push(event.data);
+        console.log("📥 [문장 큐에 추가]:", event.data, "/ 큐 길이:", textQueueRef.current.length);
         return;
       }
 
       if (event.data instanceof ArrayBuffer) {
-        const mp3Chunk = new Uint8Array(event.data);
-
-        if (mp3ChunksRef.current.length === 0) {
-          setAiMessage(pendingAiTextRef.current);
-          setStatus("speaking");
-        }
-
-        mp3ChunksRef.current.push(mp3Chunk);
-        console.log("📥 mp3 chunk 수신:", mp3Chunk.length);
+        const pcmChunk = new Uint8Array(event.data);
+        const base64Pcm = uint8ArrayToBase64(pcmChunk);
+        await ExpoPlayAudioStream.playAudio(base64Pcm, "16000");
+        console.log("📥 PCM chunk 수신 및 재생:", pcmChunk.length);
       }
     };
   }
@@ -347,52 +368,11 @@ export default function CallScreen() {
     }
   }
 
-  // --- 녹음 및 음성 처리 로직 ---
-
-  async function playCollectedMp3() {
-    try {
-      const chunks = mp3ChunksRef.current;
-
-      if (chunks.length === 0) {
-        console.log("재생할 mp3 chunk 없음");
-        return;
-      }
-
-      const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-      const merged = new Uint8Array(totalLength);
-
-      let offset = 0;
-      for (const chunk of chunks) {
-        merged.set(chunk, offset);
-        offset += chunk.length;
-      }
-
-      mp3ChunksRef.current = [];
-
-      const base64Audio = uint8ArrayToBase64(merged);
-      const fileUri = `${(FileSystem as any).cacheDirectory}ai-stream-${Date.now()}.mp3`;
-
-      await (FileSystem as any).writeAsStringAsync(fileUri, base64Audio, {
-        encoding: "base64" as any,
-      });
-
-      const { sound } = await Audio.Sound.createAsync({ uri: fileUri });
-
-      await sound.playAsync();
-
-      sound.setOnPlaybackStatusUpdate(async (playbackStatus) => {
-        if (playbackStatus.isLoaded && playbackStatus.didJustFinish) {
-          await sound.unloadAsync();
-          console.log("AI mp3 재생 완료");
-        }
-      });
-    } catch (error) {
-      console.error("mp3 재생 실패:", error);
-    }
-  }
-
   async function cleanup() {
     await stopMicStreaming();
+
+    soundChunkSubscriptionRef.current?.remove();
+    soundChunkSubscriptionRef.current = null;
 
     if (socketRef.current) {
       socketRef.current.close();
