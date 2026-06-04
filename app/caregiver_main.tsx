@@ -274,7 +274,7 @@ const handleLogout = () => {
             {/* 🌟 이제 상단에서 정상 임포트된 Text 컴포넌트가 아무 에러 없이 안착합니다 */}
             <Text style={{ fontSize: 18, color: '#333', fontWeight: '700', marginBottom: 6 }}>연결된 환자가 없습니다.</Text>
             <Text style={{ fontSize: 13, color: '#999', textAlign: 'center', lineHeight: 20 }}>
-              하단의 '어르신 추가하기' 버튼을 눌러 코드를 발급받고{"\n"}환자 앱과 연동을 완료해 주세요.
+              하단의 '어르신 추가하기' 버튼을 눌러 코드를 발급받고{"\n"}어르신 앱과 연동을 완료해 주세요.
             </Text>
           </View>
         )}
