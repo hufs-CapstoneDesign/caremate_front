@@ -62,7 +62,7 @@ export default function RootLayout() {
 
         // 역할에 맞지 않는 FCM 무시
         if (userRole === "PATIENT" && msgType !== "AI_CALL") return;
-        if (userRole === "CAREGIVER" && msgType !== "NOREPLY") return;
+        if (userRole === "CAREGIVER" && msgType !== "NO_REPLY") return;
 
         await Notifications.scheduleNotificationAsync({
           content: {
