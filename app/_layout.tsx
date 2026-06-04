@@ -1,18 +1,16 @@
+import messaging from "@react-native-firebase/messaging"; // 🌟 FCM 임포트
 import {
   DarkTheme,
   DefaultTheme,
   ThemeProvider,
 } from "@react-navigation/native";
+import * as Notifications from "expo-notifications";
+import { NotificationHandler } from "expo-notifications";
 import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { Platform, AppRegistry } from "react-native";
-import * as Device from "expo-device";
-import * as Notifications from "expo-notifications";
-import Constants from "expo-constants";
-import { NotificationHandler } from "expo-notifications";
+import { AppRegistry, Platform } from "react-native";
 import "react-native-reanimated";
-import messaging from "@react-native-firebase/messaging"; // 🌟 FCM 임포트
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
@@ -32,16 +30,16 @@ Notifications.setNotificationHandler(notificationHandler);
 if (Platform.OS === "android") {
   const isTaskRegistered =
     AppRegistry.getAppKeys().includes(
-      "ReactNativeFirebaseMessagingHeadlessTask"
+      "ReactNativeFirebaseMessagingHeadlessTask",
     ) ||
     (AppRegistry as any).getRunnable?.(
-      "ReactNativeFirebaseMessagingHeadlessTask"
+      "ReactNativeFirebaseMessagingHeadlessTask",
     );
 
   if (!isTaskRegistered) {
     AppRegistry.registerHeadlessTask(
       "ReactNativeFirebaseMessagingHeadlessTask",
-      () => require("../index.js") // index.js 또는 적절한 엔트리 파일 경로
+      () => require("../index.js"), // index.js 또는 적절한 엔트리 파일 경로
     );
   }
 }
@@ -57,8 +55,29 @@ export default function RootLayout() {
     const unsubscribeForeground = messaging().onMessage(
       async (remoteMessage) => {
         console.log("📱 [Foreground] 알림 수신:", remoteMessage);
-        // 필요 시 배너 노출 알림 추가 가능
-      }
+
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: remoteMessage.notification?.title ?? "AI 전화",
+            body: remoteMessage.notification?.body ?? "전화가 왔습니다.",
+            data: remoteMessage.data,
+            sound: "default",
+          },
+          trigger: null,
+        });
+
+        if (remoteMessage.data?.type === "AI_CALL") {
+          router.replace({
+            pathname: "/patient_incoming_call",
+            params: {
+              call_type:
+                typeof remoteMessage.data?.call_type === "string"
+                  ? remoteMessage.data.call_type
+                  : "requested",
+            },
+          });
+        }
+      },
     );
 
     // ✅ 2. Background: 앱이 백그라운드에 있을 때 배너 클릭으로 앱 열림
@@ -69,7 +88,7 @@ export default function RootLayout() {
         if (data?.type === "AI_CALL") {
           router.replace("/patient_incoming_call");
         }
-      }
+      },
     );
 
     // ✅ 3. Killed: 앱이 완전히 종료된 상태에서 배너 클릭 시
