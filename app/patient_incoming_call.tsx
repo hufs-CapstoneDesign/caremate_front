@@ -1,9 +1,16 @@
 import { useRouter } from "expo-router";
-import React from "react";
+import React, { useEffect } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function IncomingCallScreen() {
   const router = useRouter();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      router.replace("/patient_main");
+    }, 60000); // 30초 후 자동으로 메인 화면으로 이동
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleAccept = () => {
     router.replace("/patient_call");

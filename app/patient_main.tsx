@@ -141,11 +141,9 @@ export default function PatientMain() {
 
         {/* 테스트용 버튼 */}
         <TouchableOpacity
-          style={styles.subTestCard}
+          style={[styles.subTestCard, { backgroundColor: 'transparent' }]}
           onPress={() => router.replace("/")}
         >
-          <Ionicons name="settings-outline" size={20} color="#718096" />
-          <Text style={styles.subTestText}>메인화면으로</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -238,6 +236,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 18,
     gap: 8,
+    
   },
   subTestText: { 
     color: "#4A5568", 

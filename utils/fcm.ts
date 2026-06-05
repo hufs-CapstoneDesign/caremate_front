@@ -37,7 +37,7 @@ export async function registerAndSendFcmToken(
     user_type: userType,
   };
 
-  await fetch(`http://${process.env.EXPO_PUBLIC_API_URL}/auth/fcm-token`, {
+  await fetch(`${process.env.EXPO_PUBLIC_API_URL}/auth/fcm-token`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

@@ -231,22 +231,23 @@ export default function CaregiverReport() {
               </MetricValueGroup>
             </MetricRow>
 
-            {/* 2. 일일 복약 */}
+            {/* 2. 일일 복약 (수정: 아침/저녁 -> 1회/2회 동적 매핑) */}
             <MetricRow>
               <MetricLabelGroup>
                 <Pill size={18} color="#FF6B6B" />
                 <MetricTitle>일일 복약</MetricTitle>
               </MetricLabelGroup>
               <MetricValueGroup>
-                {['아침', '저녁'].map((time) => {
-                  const medTarget = reportDetail?.medications?.find((m) => m.time === time);
+                {['1회', '2회'].map((displayTime, index) => {
+                  // 기존 데이터 리스트의 인덱스 순서대로 혹은 기존 타임 스탬프 매칭
+                  const medTarget = reportDetail?.medications?.[index];
                   const isTaken = !!medTarget?.taken;
                   const isLowConf = medTarget ? medTarget.confidence < 0.8 : false;
 
                   return (
-                    <StatusItem key={time}>
+                    <StatusItem key={displayTime}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                        <StatusLabel style={{ marginBottom: 0 }}>{time}</StatusLabel>
+                        <StatusLabel style={{ marginBottom: 0 }}>{displayTime}</StatusLabel>
                         {isLowConf && (
                           <AlertCircle size={11} color="#FF6B6B" style={{ marginLeft: 2 }} />
                         )}
@@ -348,7 +349,8 @@ export default function CaregiverReport() {
                 </IconWrapper>
                 <EventInfo style={{ flex: 1 }}>
                   <EventTitle>{section.label}</EventTitle>
-                  <EventSub numberOfLines={3}>
+                  {/* 수정: numberOfLines={3}을 제거하여 텍스트가 잘리지 않고 전체가 출력되도록 함 */}
+                  <EventSub>
                     {section.content}
                   </EventSub>
                 </EventInfo>
@@ -402,7 +404,7 @@ const EventBox = styled.View` flex: 1; flex-direction: row; align-items: center;
 const IconWrapper = styled.View<{ backgroundColor: string }>` width: 36px; height: 36px; border-radius: 12px; background-color: ${props => props.backgroundColor}; justify-content: center; align-items: center; margin-right: 12px; `;
 const EventInfo = styled.View``;
 const EventTitle = styled.Text` font-size: 14px; font-weight: 600; color: #333; margin-bottom: 2px; `;
-const EventSub = styled.Text` font-size: 12px; color: #999; `;
+const EventSub = styled.Text` font-size: 12px; color: #999; line-height: 18px; `; // 가독성을 위해 line-height 살짝 추가
 
 const MealStatus = styled.View`
   align-items: center;
@@ -472,7 +474,6 @@ const NoticeText = styled.Text`
   font-weight: 500;
 `;
 
-// 💡 새롭게 추가된 채팅 아이콘 전용 styled-components
 const ChatIconButton = styled.TouchableOpacity`
   padding: 6px;
   justify-content: center;

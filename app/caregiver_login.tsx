@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { ShieldCheck, Lock, Mail } from 'lucide-react-native';
 import * as SecureStore from "expo-secure-store";
+import { loginGuardian } from "@/services/api";
 
 export default function CaregiverLoginScreen() {
   const [username, setUsername] = useState("");
@@ -33,31 +34,18 @@ export default function CaregiverLoginScreen() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`http://${process.env.EXPO_PUBLIC_API_URL}/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username, password }),
-      });
+      const result = await loginGuardian({ username, password });
+      console.log("result:", JSON.stringify(result));
+      console.log("access_token:", result.access_token);
 
-      const result = await response.json();
+      const tokenToSave = result.access_token || result.accessToken || result.token;
+      console.log("tokenToSave:", tokenToSave);
 
-      if (response.ok) {
-        console.log("백엔드 응답 전체 데이터:", result);
-
-        const tokenToSave = result.access_token || result.accessToken || result.token;
-
-        if (tokenToSave) {
-          await SecureStore.setItemAsync("userToken", String(tokenToSave));
-          await SecureStore.setItemAsync("userRole", "CAREGIVER"); // 👈 이거 추가
-
-          Alert.alert("성공", "로그인되었습니다.");
-          router.replace("/caregiver_main"); // 메인 화면으로 이동
-        } else {
-          Alert.alert("로그인 실패", "서버로부터 인증 토큰을 받지 못했습니다. 변수명을 확인해주세요.");
-          console.error("토큰을 찾을 수 없습니다. result 객체 구조:", result);
-        }
+      if (tokenToSave) {
+        await SecureStore.setItemAsync("userToken", String(tokenToSave));
+        await SecureStore.setItemAsync("userRole", "CAREGIVER");
+        Alert.alert("성공", "로그인되었습니다.");
+        router.replace("/caregiver_main");
       } else {
         Alert.alert("로그인 실패", result.message || "정보를 다시 확인해 주세요.");
       }
@@ -66,7 +54,7 @@ export default function CaregiverLoginScreen() {
       Alert.alert("에러", "네트워크 리퀘스트 타임아웃 또는 서버 연결 실패");
     } finally {
       setIsLoading(false);
-    }
+    } 
   };
 
   // UI 렌더링 영역 (정확히 함수 내부에 위치)

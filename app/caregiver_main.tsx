@@ -124,10 +124,13 @@ const handleLogout = () => {
 
         setNotifications(prev => {
           const merged = [...missedNotiList, ...prev];
-          const threeDaysAgo = new Date();
-          threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-          return merged.filter(noti => new Date(noti.date) >= threeDaysAgo);
-        });
+          const unique = merged.filter(
+            (noti, index, self) => index === self.findIndex(n => n.id === noti.id)
+        );
+        const threeDaysAgo = new Date();
+        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+        return unique.filter(noti => new Date(noti.date) >= threeDaysAgo);
+      });
 
         console.log("✅ 미수신 알림 로드 완료:", missedNotiList.length, "건");
       } catch (error) {
@@ -164,12 +167,12 @@ const handleLogout = () => {
 
       // 🌟 [수정 완료] 새 알림이 올 때마다 이전 알림들과 함께 누적 배열을 형성하고 최근 3일치만 남깁니다.
       setNotifications(prev => {
+        if (prev.some(n => n.id === newNoti.id)) return prev;
         const updatedList = [newNoti, ...prev];
         const threeDaysAgo = new Date();
         threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-
-        return updatedList.filter(noti => {
-          const notiDate = noti.date ? new Date(noti.date) : new Date();
+        return updatedList.filter(noti => 
+        { const notiDate = noti.date ? new Date(noti.date) : new Date();
           return notiDate >= threeDaysAgo;
         });
       });

@@ -2,7 +2,7 @@
 import * as SecureStore from 'expo-secure-store';
 
 // 백엔드 기본 주소 (본인의 API 주소로 변경하세요)
-const BASE_URL = `http://${process.env.EXPO_PUBLIC_API_URL}`; // 예: 'http://localhost:3000'
+const BASE_URL = `${process.env.EXPO_PUBLIC_API_URL}`; // 예: 'http://localhost:3000'
 
 /**
  * 토큰을 자동으로 첨부하여 백엔드에 요청을 보내는 공통 함수 (GET, POST, PUT, DELETE 모두 지원)
@@ -73,9 +73,18 @@ export async function requestWithToken(endpoint, payload = {}, method = "POST") 
 
 /** 1. 보호자 로그인 */
 export async function loginGuardian(loginData) {
-  return await requestWithToken("auth/login", loginData);
+  const response = await fetch(`${BASE_URL}/auth/login`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ 
+      username: loginData.username,
+      password: loginData.password
+     }),
+  });
+  return await response.json();
 }
-
 /** 2. 환자 정보 입력 */
 export async function invitePatient(patientData) {
   return await requestWithToken("auth/invite-patient", patientData);
