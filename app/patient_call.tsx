@@ -54,9 +54,13 @@ export default function CallScreen() {
   const [status, setStatus] = useState<CallStatus>("connecting");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [aiMessage, setAiMessage] = useState<string>("");
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const socketRef = useRef<WebSocket | null>(null);
   const isProcessingRef = useRef(false);
+  const callStartTimeRef = useRef<number | null>(null);
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const CHUNK_SIZE = 4096;
 
@@ -66,8 +70,9 @@ export default function CallScreen() {
   const isMicOnRef = useRef(false);
   const micOnPendingRef = useRef(false);
   const textQueueRef = useRef<string[]>([]);
-  const sentenceEndRef = useRef(false); // SENTENCE_END 받았으면 다음 PCM 첫 청크 때 텍스트 교체
+  const sentenceEndRef = useRef(false);
 
+  // ─── 애니메이션 ───────────────────────────────────────────────────────────
   useEffect(() => {
     const pulse = Animated.loop(
       Animated.sequence([
@@ -87,6 +92,7 @@ export default function CallScreen() {
     return () => pulse.stop();
   }, [pulseAnim]);
 
+  // ─── 통화 시작 / 종료 ─────────────────────────────────────────────────────
   useEffect(() => {
     startCall();
     return () => {
@@ -94,8 +100,32 @@ export default function CallScreen() {
     };
   }, []);
 
-  // --- API 및 통신 로직 ---
+  // ─── 타이머 ───────────────────────────────────────────────────────────────
+  function formatElapsed(seconds: number) {
+    const m = Math.floor(seconds / 60).toString().padStart(2, "0");
+    const s = (seconds % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  }
 
+  function startTimer() {
+    if (timerIntervalRef.current) return;
+    callStartTimeRef.current = Date.now();
+    timerIntervalRef.current = setInterval(() => {
+      const elapsed = Math.floor(
+        (Date.now() - (callStartTimeRef.current ?? Date.now())) / 1000,
+      );
+      setElapsedSeconds(elapsed);
+    }, 1000);
+  }
+
+  function stopTimer() {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+  }
+
+  // ─── API 및 통신 로직 ─────────────────────────────────────────────────────
   async function startCall() {
     try {
       setStatus("connecting");
@@ -110,7 +140,6 @@ export default function CallScreen() {
         return;
       }
 
-      // auth/me API로 환자 본인의 user_id 조회
       const me = await fetchPatientInfoForPatient();
       const realPatientId = me?.user_id ?? null;
       console.log("🔑 API에서 로드한 실제 환자 ID:", realPatientId);
@@ -124,10 +153,7 @@ export default function CallScreen() {
         return;
       }
 
-      // 🌟 진짜 동적 ID를 실어서 통화 세션 요청을 발송합니다.
-      const data = await startSession({
-        call_type: currentCallType,
-      });
+      const data = await startSession({ call_type: currentCallType });
 
       console.log(
         "📥 [2단계: API 응답 수신 성공] 서버 응답 상태 데이터::",
@@ -135,7 +161,6 @@ export default function CallScreen() {
       );
 
       if (data) {
-        // 🌟 백엔드가 세션 주머니 정보를 다채롭게 주더라도 낚아채도록 가드 구축
         const actualSessionId =
           data.session_id ||
           data.sessionId ||
@@ -195,7 +220,7 @@ export default function CallScreen() {
       console.log("✅ [WS 연결 성공]");
       socketRef.current = ws;
 
-      // 청크 재생 완료 구독 — 마지막 청크 재생 끝나면 마이크 켜기
+      // 마지막 청크 재생 완료 시 마이크 켜기
       soundChunkSubscriptionRef.current =
         ExpoPlayAudioStream.subscribeToSoundChunkPlayed(async (event: any) => {
           if (event.isFinal && micOnPendingRef.current) {
@@ -226,13 +251,12 @@ export default function CallScreen() {
         }
 
         if (event.data === "SENTENCE_END") {
-          // 다음 PCM 첫 청크 올 때 텍스트 바꿀 준비만 함
           sentenceEndRef.current = true;
           console.log("📥 [SENTENCE_END] 다음 PCM 첫 청크 때 텍스트 교체 준비");
           return;
         }
 
-        // 문장 텍스트 → 큐에 쌓기
+        // 문장 텍스트 → 큐에 쌓고, PCM이 오지 않아도 바로 화면에 표시 (fallback)
         textQueueRef.current.push(event.data);
         console.log(
           "📥 [문장 큐에 추가]:",
@@ -240,6 +264,7 @@ export default function CallScreen() {
           "/ 큐 길이:",
           textQueueRef.current.length,
         );
+        setAiMessage(event.data);
         return;
       }
 
@@ -248,7 +273,6 @@ export default function CallScreen() {
 
         if (sentenceEndRef.current || !aiMessage) {
           sentenceEndRef.current = false;
-
           const next = textQueueRef.current.shift();
           if (next) {
             setAiMessage(next);
@@ -259,60 +283,62 @@ export default function CallScreen() {
 
         const base64Pcm = uint8ArrayToBase64(pcmChunk);
         await ExpoPlayAudioStream.playAudio(base64Pcm, "16000");
-
         console.log("📥 PCM chunk 수신 및 재생:", pcmChunk.length);
       }
     };
+
+    ws.onerror = (error) => {
+      console.error("❌ [WS 에러]:", error);
+    };
+
+    ws.onclose = (event) => {
+      console.warn(
+        `⚠️ [WS 연결 종료] code=${event.code} reason=${event.reason} wasClean=${event.wasClean}`,
+      );
+    };
   }
 
+  // ─── 유틸 ─────────────────────────────────────────────────────────────────
   function base64ToUint8Array(base64: string) {
     const binary = base64Decode(base64);
     const bytes = new Uint8Array(binary.length);
-
     for (let i = 0; i < binary.length; i++) {
       bytes[i] = binary.charCodeAt(i);
     }
-
     return bytes;
   }
 
   function uint8ArrayToBase64(bytes: Uint8Array) {
     let binary = "";
     const chunkSize = 0x8000;
-
     for (let i = 0; i < bytes.length; i += chunkSize) {
       const chunk = bytes.subarray(i, i + chunkSize);
       binary += String.fromCharCode(...chunk);
     }
-
     return base64Encode(binary);
   }
 
   function enqueueAndSendPcm(bytes: Uint8Array) {
     const previous = pendingPcmRef.current;
     const merged = new Uint8Array(previous.length + bytes.length);
-
     merged.set(previous, 0);
     merged.set(bytes, previous.length);
 
     let offset = 0;
-
     while (merged.length - offset >= CHUNK_SIZE) {
       const chunk = merged.slice(offset, offset + CHUNK_SIZE);
-
       if (
         socketRef.current?.readyState === WebSocket.OPEN &&
         isMicOnRef.current
       ) {
         socketRef.current.send(chunk);
       }
-
       offset += CHUNK_SIZE;
     }
-
     pendingPcmRef.current = merged.slice(offset);
   }
 
+  // ─── 마이크 스트리밍 ──────────────────────────────────────────────────────
   async function startMicStreaming() {
     try {
       if (isMicOnRef.current) return;
@@ -333,7 +359,6 @@ export default function CallScreen() {
         interval: 100,
         onAudioStream: (event: any) => {
           if (!isMicOnRef.current) return;
-
           const pcmBytes = base64ToUint8Array(event.data);
           enqueueAndSendPcm(pcmBytes);
         },
@@ -341,6 +366,7 @@ export default function CallScreen() {
 
       audioSubscriptionRef.current = subscription;
       console.log("🎤 PCM 스트리밍 시작");
+      startTimer();
     } catch (error) {
       console.error("PCM 스트리밍 시작 실패:", error);
     }
@@ -351,14 +377,10 @@ export default function CallScreen() {
       if (!isMicOnRef.current) return;
 
       isMicOnRef.current = false;
-
       audioSubscriptionRef.current?.remove();
       audioSubscriptionRef.current = null;
-
       await ExpoPlayAudioStream.stopRecording();
-
       pendingPcmRef.current = new Uint8Array();
-
       console.log("🎤 PCM 스트리밍 중지");
     } catch (error) {
       console.error("PCM 스트리밍 중지 실패:", error);
@@ -369,7 +391,6 @@ export default function CallScreen() {
     try {
       console.log("5. [API 요청] 통화 종료 시도, 세션:", sessionId);
       await cleanup();
-
       if (sessionId) {
         const result = await endSession(sessionId);
         console.log("6. [종료 API 결과]:", result);
@@ -383,6 +404,7 @@ export default function CallScreen() {
 
   async function cleanup() {
     await stopMicStreaming();
+    stopTimer();
 
     soundChunkSubscriptionRef.current?.remove();
     soundChunkSubscriptionRef.current = null;
@@ -395,6 +417,7 @@ export default function CallScreen() {
     isProcessingRef.current = true;
   }
 
+  // ─── 렌더 ─────────────────────────────────────────────────────────────────
   const current = statusText[status];
   return (
     <View style={styles.container}>
@@ -403,7 +426,7 @@ export default function CallScreen() {
           <View style={styles.greenDot} />
           <Text style={styles.topText}>{current.top}</Text>
         </View>
-        <Text style={styles.timer}>00:17</Text>
+        <Text style={styles.timer}>{formatElapsed(elapsedSeconds)}</Text>
       </View>
       <View style={styles.centerArea}>
         <Animated.View
