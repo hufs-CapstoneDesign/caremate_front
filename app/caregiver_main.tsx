@@ -186,7 +186,7 @@ const handleLogout = () => {
   const handleRequestCall = async () => {
     // 상수가 아닌 상태값 검사 가드 추가
     if (!patientId) {
-      Alert.alert("안내", "먼저 환자를 등록해 주세요.");
+      Alert.alert("안내", "먼저 어르신을 등록해 주세요.");
       return;
     }
     

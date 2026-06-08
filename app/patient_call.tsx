@@ -217,10 +217,7 @@ export default function CallScreen() {
     ws.binaryType = "arraybuffer";
 
     ws.onopen = () => {
-      console.log("✅ [WS 연결 성공]");
       socketRef.current = ws;
-
-      // 마지막 청크 재생 완료 시 마이크 켜기
       soundChunkSubscriptionRef.current =
         ExpoPlayAudioStream.subscribeToSoundChunkPlayed(async (event: any) => {
           if (event.isFinal && micOnPendingRef.current) {
@@ -230,7 +227,14 @@ export default function CallScreen() {
           }
         });
 
-      startMicStreaming();
+      if (currentCallType === "scheduled") {
+       // AI가 먼저 말함 - 서버가 PCM 전송 후 MIC_ON 보낼 때까지 대기
+        console.log("📅 스케줄 콜 - AI 먼저 발화 대기 중");
+        setStatus("connecting");
+      } else {
+        // 환자가 먼저 말함 - 기존 동작
+        startMicStreaming();
+      }
     };
 
     ws.onmessage = async (event) => {

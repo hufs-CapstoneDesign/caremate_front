@@ -1,9 +1,11 @@
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams  } from "expo-router";
 import React, { useEffect } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function IncomingCallScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();  // 추가
+  const callType = params.call_type as string ?? "requested";  // 추가
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -13,7 +15,10 @@ export default function IncomingCallScreen() {
   }, []);
 
   const handleAccept = () => {
-    router.replace("/patient_call");
+    router.replace({
+      pathname: "/patient_call",
+      params: {call_type: callType},
+    });
   };
 
   const handleReject = () => {
