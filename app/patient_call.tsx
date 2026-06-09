@@ -149,7 +149,7 @@ export default function CallScreen() {
           "인증 오류",
           "환자 정보를 불러올 수 없습니다. 다시 로그인해 주세요.",
         );
-        router.back();
+        router.replace('./index');
         return;
       }
 
@@ -192,11 +192,11 @@ export default function CallScreen() {
             "연결 실패",
             "통화 세션 필수 정보(ID/웹소켓 URL) 파싱에 실패했습니다.",
           );
-          router.back();
+          router.replace('/patient_main');
         }
       } else {
         Alert.alert("연결 실패", "통화 세션 필수 정보를 받아오지 못했습니다.");
-        router.back();
+        router.replace('/patient_main');
       }
     } catch (error) {
       console.error(
@@ -207,7 +207,7 @@ export default function CallScreen() {
         "오류",
         "서버와 연결이 원활하지 않습니다. 다시 시도해 주세요.",
       );
-      router.back();
+      router.replace('/patient_main');
     }
   }
 
@@ -216,23 +216,39 @@ export default function CallScreen() {
     const ws = new WebSocket(websocketUrl);
     ws.binaryType = "arraybuffer";
 
-    ws.onopen = () => {
+    // AI 발화가 끝났고 마이크를 켤 준비가 되었는지 판단하는 임시 상태 변수 (함수 내 스코프)
+    let isAiFinishedTalking = false;
+
+    ws.onopen = async () => {
       socketRef.current = ws;
+
+      // 오디오 청크 재생 완료 이벤트 구독
       soundChunkSubscriptionRef.current =
         ExpoPlayAudioStream.subscribeToSoundChunkPlayed(async (event: any) => {
-          if (event.isFinal && micOnPendingRef.current) {
-            micOnPendingRef.current = false;
-            console.log("🔊 마지막 청크 재생 완료 → 마이크 켜기");
-            await startMicStreaming();
+          // [핵심 변경] 재생이 진짜 끝났을(isFinal) 때, 서버에서도 MIC_ON 신호가 이미 와 있었다면 마이크를 켭니다.
+          if (event.isFinal) {
+            console.log("🔊 AI 오디오 청크 최종 재생 완료");
+            if (micOnPendingRef.current) {
+              micOnPendingRef.current = false;
+              console.log("🎤 조건 충족: 서버 신호 확인됨 -> 마이크 스트리밍 시작");
+              await startMicStreaming();
+            } else {
+              // 오디오는 끝났는데 아직 서버에서 MIC_ON을 안 준 경우, 플래그만 세팅하고 대기
+              isAiFinishedTalking = true;
+            }
           }
         });
 
       if (currentCallType === "scheduled") {
-       // AI가 먼저 말함 - 서버가 PCM 전송 후 MIC_ON 보낼 때까지 대기
         console.log("📅 스케줄 콜 - AI 먼저 발화 대기 중");
-        setStatus("connecting");
+        // ✅ 수정: scheduled 콜도 오디오 설정을 먼저 적용
+        await ExpoPlayAudioStream.setSoundConfig({
+          sampleRate: 16000,
+          playbackMode: PlaybackModes.VOICE_PROCESSING,
+        });
+        setStatus("speaking");
+        startTimer();
       } else {
-        // 환자가 먼저 말함 - 기존 동작
         startMicStreaming();
       }
     };
@@ -250,7 +266,16 @@ export default function CallScreen() {
         }
 
         if (event.data === "MIC_ON") {
+          console.log("📥 [MIC_ON 신호 수신] -> 마이크 대기 상태 전환");
           micOnPendingRef.current = true;
+          
+          // [핵심 변경] 서버에서 MIC_ON이 왔을 때, 이미 AI 오디오 재생이 끝나 있는 상태라면 즉시 마이크를 켭니다.
+          if (isAiFinishedTalking) {
+            console.log("🎤 조건 충족: AI 발화가 이미 끝남 -> 즉시 마이크 스트리밍 시작");
+            micOnPendingRef.current = false;
+            isAiFinishedTalking = false; // 상태 초기화
+            await startMicStreaming();
+          }
           return;
         }
 
@@ -260,19 +285,15 @@ export default function CallScreen() {
           return;
         }
 
-        // 문장 텍스트 → 큐에 쌓고, PCM이 오지 않아도 바로 화면에 표시 (fallback)
         textQueueRef.current.push(event.data);
-        console.log(
-          "📥 [문장 큐에 추가]:",
-          event.data,
-          "/ 큐 길이:",
-          textQueueRef.current.length,
-        );
         setAiMessage(event.data);
         return;
       }
 
       if (event.data instanceof ArrayBuffer) {
+        // 새로운 오디오가 들어오기 시작하면, AI가 아직 말하는 중이므로 발화 완료 플래그를 꺼둡니다.
+        isAiFinishedTalking = false; 
+
         const pcmChunk = new Uint8Array(event.data);
 
         if (sentenceEndRef.current || !aiMessage) {
@@ -281,25 +302,16 @@ export default function CallScreen() {
           if (next) {
             setAiMessage(next);
             setStatus("speaking");
-            console.log("📥 [오디오 시작과 함께 문장 표시]:", next);
           }
         }
 
         const base64Pcm = uint8ArrayToBase64(pcmChunk);
         await ExpoPlayAudioStream.playAudio(base64Pcm, "16000");
-        console.log("📥 PCM chunk 수신 및 재생:", pcmChunk.length);
       }
     };
 
-    ws.onerror = (error) => {
-      console.error("❌ [WS 에러]:", error);
-    };
-
-    ws.onclose = (event) => {
-      console.warn(
-        `⚠️ [WS 연결 종료] code=${event.code} reason=${event.reason} wasClean=${event.wasClean}`,
-      );
-    };
+    ws.onerror = (error) => { console.error("❌ [WS 에러]:", error); };
+    ws.onclose = (event) => { console.warn(`⚠️ [WS 연결 종료] code=${event.code}`); };
   }
 
   // ─── 유틸 ─────────────────────────────────────────────────────────────────
@@ -399,10 +411,10 @@ export default function CallScreen() {
         const result = await endSession(sessionId);
         console.log("6. [종료 API 결과]:", result);
       }
-      router.back();
+      router.replace('/patient_main');
     } catch (error) {
       console.error("❌ 통화 종료 실패:", error);
-      router.back();
+      router.replace('/patient_main');
     }
   }
 
@@ -445,7 +457,9 @@ export default function CallScreen() {
         </Animated.View>
         <View style={styles.messageContainer}>
           <Text style={aiMessage ? styles.aiMessageText : styles.subtitle}>
-            {aiMessage || "어르신의 말씀을 듣고 있어요..."}
+            {aiMessage || (currentCallType === "scheduled" 
+              ? "AI 케어봇이 전화를 연결하고 있어요..." 
+              : "어르신의 말씀을 듣고 있어요...")}
           </Text>
         </View>
         <Text style={styles.title}>{current.main}</Text>
@@ -455,10 +469,7 @@ export default function CallScreen() {
         </View>
       </View>
       <View style={styles.bottomArea}>
-        <TouchableOpacity style={styles.speakerButton}>
-          <Text style={styles.speakerIcon}>🔊</Text>
-        </TouchableOpacity>
-        <Text style={styles.speakerText}>스피커</Text>
+        
         <TouchableOpacity style={styles.endButton} onPress={endCall}>
           <Text style={styles.endIcon}>📞</Text>
         </TouchableOpacity>

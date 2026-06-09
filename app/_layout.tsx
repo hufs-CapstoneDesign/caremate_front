@@ -18,11 +18,10 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 // 앱이 켜져 있을 때 알림 배너를 어떻게 표시할지 설정
 const notificationHandler: NotificationHandler = {
   handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
+    shouldPlaySound: true,   // 🔊 알림 올 때 소리 켬
+    shouldSetBadge: false,   // 🔴 앱 아이콘에 숫자 배지 안 뜸
+    shouldShowBanner: true,  // 🔔 앱이 켜져 있을 때도 화면 상단에 팝업(배너) 띄움
+    shouldShowList: true,    // 📜 상단 바를 내렸을 때 알림 센터 목록에 남김
   }),
 };
 Notifications.setNotificationHandler(notificationHandler);
@@ -50,20 +49,28 @@ export default function RootLayout() {
   const router = useRouter();
 
   useEffect(() => {
-    // 🌟 [수정] 앱 구동 즉시 무조건 FCM 토큰을 발급받아 보내던 전역 로직을 제거했습니다.
-
     // ✅ 1. Foreground: 앱이 켜져 있을 때 푸시 알림 수신
     const unsubscribeForeground = messaging().onMessage(
       async (remoteMessage) => {
         console.log("📱 [Foreground] 알림 수신:", remoteMessage);
 
-        const userRole = await SecureStore.getItemAsync("userRole");
+        const rawRole = await SecureStore.getItemAsync("userRole");
+        const userRole = rawRole ? rawRole.toLowerCase() : ""; // 💡 대소문자 방지를 위해 소문자로 통일
         const msgType = remoteMessage.data?.type;
 
-        // 역할에 맞지 않는 FCM 무시
-        if (userRole === "PATIENT" && msgType !== "AI_CALL") return;
-        if (userRole === "CAREGIVER" && msgType !== "NO_REPLY") return;
+        console.log(`🕵️ [Foreground] 역할 검증 -> userRole: ${userRole}, msgType: ${msgType}`);
 
+        // 역할에 맞지 않는 FCM 무시 (안전하게 소문자로 비교)
+        if (userRole === "patient" && msgType !== "AI_CALL") {
+          console.log("🛑 환자 역할이지만 AI_CALL이 아니라 거름");
+          return;
+        }
+        if (userRole === "caregiver" && msgType !== "NO_REPLY") {
+          console.log("🛑 보호자 역할이지만 NO_REPLY가 아니라 거름");
+          return;
+        }
+
+        // Expo 로컬 배너 스케줄링
         await Notifications.scheduleNotificationAsync({
           content: {
             title: remoteMessage.notification?.title ?? "AI 전화",
@@ -74,16 +81,22 @@ export default function RootLayout() {
           trigger: null,
         });
 
-        if (userRole === "PATIENT" && msgType === "AI_CALL") {
-          router.replace({
-            pathname: "/patient_incoming_call",
-            params: {
-              call_type:
-                typeof remoteMessage.data?.call_type === "string"
-                  ? remoteMessage.data.call_type
-                  : "requested",
-            },
-          });
+        // 조건이 일치하면 화면 전환
+        if (userRole === "patient" && msgType === "AI_CALL") {
+          console.log("🚀 [Foreground] 조건 만족! 화면 전환을 요청합니다.");
+          
+          // 💡 타이밍 씹힘 방지: setTimeout으로 내비게이션 안정을 확보
+          setTimeout(() => {
+            router.replace({
+              pathname: "/patient_incoming_call",
+              params: {
+                call_type:
+                  typeof remoteMessage.data?.call_type === "string"
+                    ? remoteMessage.data.call_type
+                    : "requested",
+              },
+            });
+          }, 100);
         }
       },
     );
@@ -92,11 +105,15 @@ export default function RootLayout() {
     const unsubscribeBackground = messaging().onNotificationOpenedApp(
       async (remoteMessage) => {
         console.log("📂 [Background] 알림 클릭으로 앱 열림:", remoteMessage);
-        const userRole = await SecureStore.getItemAsync("userRole");
+        const rawRole = await SecureStore.getItemAsync("userRole");
+        const userRole = rawRole ? rawRole.toLowerCase() : "";
         const data = remoteMessage.data;
 
-        if (userRole === "PATIENT" && data?.type === "AI_CALL") {
-          router.replace("/patient_incoming_call");
+        if (userRole === "patient" && data?.type === "AI_CALL") {
+          console.log("🚀 [Background] 조건 만족! 화면 전환 실행");
+          setTimeout(() => {
+            router.replace("/patient_incoming_call");
+          }, 200);
         }
       },
     );
@@ -107,13 +124,15 @@ export default function RootLayout() {
       .then(async (remoteMessage) => {
         if (remoteMessage) {
           console.log("🚀 [Killed] 알림 클릭으로 앱 최초 실행:", remoteMessage);
-          const userRole = await SecureStore.getItemAsync("userRole");
+          const rawRole = await SecureStore.getItemAsync("userRole");
+          const userRole = rawRole ? rawRole.toLowerCase() : "";
           const data = remoteMessage.data;
 
-          if (userRole === "PATIENT" && data?.type === "AI_CALL") {
+          if (userRole === "patient" && data?.type === "AI_CALL") {
+            console.log("🚀 [Killed] 조건 만족! 대기 후 화면 전환 실행");
             setTimeout(() => {
               router.replace("/patient_incoming_call");
-            }, 500);
+            }, 600); // 완전히 꺼진 상태이므로 조금 더 여유 있게 대기
           }
         }
       });

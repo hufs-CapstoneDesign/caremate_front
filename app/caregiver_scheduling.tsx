@@ -243,7 +243,7 @@ useEffect(() => {
                   value={currentTime}
                   mode="time"
                   is24Hour={false}
-                  minuteInterval={10}
+                  minuteInterval={1}
                   // 🌟 [수정] iOS 다크모드/테마 이슈로 글씨가 안 보이는 현상 완벽 방지
                   textColor="#000000" 
                   themeVariant="light"
