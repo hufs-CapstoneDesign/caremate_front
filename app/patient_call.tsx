@@ -222,10 +222,18 @@ export default function CallScreen() {
     ws.onopen = async () => {
       socketRef.current = ws;
 
+      // ✅ [에코 수정] setSoundConfig는 세션당 딱 한 번만 호출합니다.
+      // 매 턴마다 재호출하면 AEC(에코 캔슬러)가 리셋되어 통화 후반부에 에코가 발생합니다.
+      await ExpoPlayAudioStream.setSoundConfig({
+        sampleRate: 16000,
+        playbackMode: PlaybackModes.VOICE_PROCESSING,
+      });
+      console.log("🔧 오디오 세션 설정 완료 (VOICE_PROCESSING, 1회 적용)");
+
       // 오디오 청크 재생 완료 이벤트 구독
       soundChunkSubscriptionRef.current =
         ExpoPlayAudioStream.subscribeToSoundChunkPlayed(async (event: any) => {
-          // [핵심 변경] 재생이 진짜 끝났을(isFinal) 때, 서버에서도 MIC_ON 신호가 이미 와 있었다면 마이크를 켭니다.
+          // 재생이 진짜 끝났을(isFinal) 때, 서버에서도 MIC_ON 신호가 이미 와 있었다면 마이크를 켭니다.
           if (event.isFinal) {
             console.log("🔊 AI 오디오 청크 최종 재생 완료");
             if (micOnPendingRef.current) {
@@ -241,11 +249,6 @@ export default function CallScreen() {
 
       if (currentCallType === "scheduled") {
         console.log("📅 스케줄 콜 - AI 먼저 발화 대기 중");
-        // ✅ 수정: scheduled 콜도 오디오 설정을 먼저 적용
-        await ExpoPlayAudioStream.setSoundConfig({
-          sampleRate: 16000,
-          playbackMode: PlaybackModes.VOICE_PROCESSING,
-        });
         setStatus("speaking");
         startTimer();
       } else {
@@ -268,12 +271,12 @@ export default function CallScreen() {
         if (event.data === "MIC_ON") {
           console.log("📥 [MIC_ON 신호 수신] -> 마이크 대기 상태 전환");
           micOnPendingRef.current = true;
-          
-          // [핵심 변경] 서버에서 MIC_ON이 왔을 때, 이미 AI 오디오 재생이 끝나 있는 상태라면 즉시 마이크를 켭니다.
+
+          // 서버에서 MIC_ON이 왔을 때, 이미 AI 오디오 재생이 끝나 있는 상태라면 즉시 마이크를 켭니다.
           if (isAiFinishedTalking) {
             console.log("🎤 조건 충족: AI 발화가 이미 끝남 -> 즉시 마이크 스트리밍 시작");
             micOnPendingRef.current = false;
-            isAiFinishedTalking = false; // 상태 초기화
+            isAiFinishedTalking = false;
             await startMicStreaming();
           }
           return;
@@ -292,7 +295,7 @@ export default function CallScreen() {
 
       if (event.data instanceof ArrayBuffer) {
         // 새로운 오디오가 들어오기 시작하면, AI가 아직 말하는 중이므로 발화 완료 플래그를 꺼둡니다.
-        isAiFinishedTalking = false; 
+        isAiFinishedTalking = false;
 
         const pcmChunk = new Uint8Array(event.data);
 
@@ -363,10 +366,8 @@ export default function CallScreen() {
       isMicOnRef.current = true;
       pendingPcmRef.current = new Uint8Array();
 
-      await ExpoPlayAudioStream.setSoundConfig({
-        sampleRate: 16000,
-        playbackMode: PlaybackModes.VOICE_PROCESSING,
-      });
+      // ✅ [에코 수정] setSoundConfig 호출 제거.
+      // ws.onopen에서 세션 최초 1회만 설정하므로 여기서 재호출하지 않습니다.
 
       const { subscription } = await ExpoPlayAudioStream.startRecording({
         sampleRate: 16000,
@@ -457,8 +458,8 @@ export default function CallScreen() {
         </Animated.View>
         <View style={styles.messageContainer}>
           <Text style={aiMessage ? styles.aiMessageText : styles.subtitle}>
-            {aiMessage || (currentCallType === "scheduled" 
-              ? "AI 케어봇이 전화를 연결하고 있어요..." 
+            {aiMessage || (currentCallType === "scheduled"
+              ? "AI 케어봇이 전화를 연결하고 있어요..."
               : "어르신의 말씀을 듣고 있어요...")}
           </Text>
         </View>
@@ -469,7 +470,6 @@ export default function CallScreen() {
         </View>
       </View>
       <View style={styles.bottomArea}>
-        
         <TouchableOpacity style={styles.endButton} onPress={endCall}>
           <Text style={styles.endIcon}>📞</Text>
         </TouchableOpacity>
