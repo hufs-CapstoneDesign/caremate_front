@@ -1,26 +1,34 @@
+import { router } from "expo-router";
 import {
   Activity,
   AlertCircle,
   Calendar as CalendarIcon,
   ChevronLeft,
   MessageCircle,
+  MessageSquare,
   Pill,
   Smile,
   Utensils,
-  MessageSquare // 💡 대화 원본 보기용 채팅 아이콘 추가
-} from 'lucide-react-native';
-import styled from 'styled-components/native';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Calendar as RNcalendar } from 'react-native-calendars';
-import { router } from "expo-router";
-import {fetchReport, fetchReportByDate, fetchPatientInfo} from "../services/api";
-import * as SecureStore from "expo-secure-store";
-
+} from "lucide-react-native";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Modal,
+  StyleSheet,
+  TouchableOpacity,
+  View
+} from "react-native";
+import { Calendar as RNcalendar } from "react-native-calendars";
+import styled from "styled-components/native";
+import {
+  fetchPatientInfo,
+  fetchReport,
+  fetchReportByDate,
+} from "../services/api";
 
 // --- 타입 정의 ---
 interface ProgressProps {
-  $width: string;  
+  $width: string;
   $color: string;
 }
 
@@ -43,8 +51,8 @@ interface ReportDetail {
   report_date: string;
   session_count: number;
   last_updated: string;
-  meals: MealItem[];         
-  medications: MedicationItem[]; 
+  meals: MealItem[];
+  medications: MedicationItem[];
   analysis: {
     physical: {
       condition: string | null;
@@ -63,88 +71,108 @@ interface ReportDetail {
   } | null;
 }
 
-
 export default function CaregiverReport() {
   const [patientName, setPatientName] = useState<string>("어르신");
+  const [medicationCount, setMedicationCount] = useState(2);
   const [reportDetail, setReportDetail] = useState<ReportDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCalendarVisible, setCalendarVisible] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); 
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
   const [markedDates, setMarkedDates] = useState<any>({});
+  // ✅ 중복 네비게이션 방지용 ref
+  const isNavigatingRef = React.useRef(false);
 
   useEffect(() => {
     const loadPatientInfo = async () => {
       const response = await fetchPatientInfo(null);
       const patient = Array.isArray(response) ? response[0] : null;
-      if (patient?.name) {
-        setPatientName(patient.name);
+      if (patient) {
+        if (patient.name) {
+          setPatientName(patient.name);
+        }
+
+        if (patient.medication) {
+          const match = patient.medication.match(/\d+/);
+
+          if (match) {
+            setMedicationCount(Number(match[0]));
+          }
+        }
       }
     };
     loadPatientInfo();
   }, []);
 
   useEffect(() => {
-  const loadDots = async () => {
-    try {
-      const activeReports = await fetchReport(); // 🌟 7번 API 호출
-      const newMarks: any = {};
+    const loadDots = async () => {
+      try {
+        const activeReports = await fetchReport(); // 🌟 7번 API 호출
+        const newMarks: any = {};
 
-      if (Array.isArray(activeReports)) {
-        activeReports.forEach((item: any) => {
-          if (item.report_date) {
-            // 해당 날짜에 파란 점(.marked) 추가
-            newMarks[item.report_date] = { marked: true, dotColor: '#3b82f6' };
-          }
-        });
+        if (Array.isArray(activeReports)) {
+          activeReports.forEach((item: any) => {
+            if (item.report_date) {
+              // 해당 날짜에 파란 점(.marked) 추가
+              newMarks[item.report_date] = {
+                marked: true,
+                dotColor: "#3b82f6",
+              };
+            }
+          });
+        }
+
+        // 현재 선택된 날짜 하이라이트 스타일도 함께 병합
+        newMarks[selectedDate] = {
+          ...newMarks[selectedDate],
+          selected: true,
+          selectedColor: "#3b82f6",
+        };
+
+        setMarkedDates(newMarks);
+      } catch (error) {
+        console.error("캘린더 점 찍기 실패:", error);
       }
+    };
 
-      // 현재 선택된 날짜 하이라이트 스타일도 함께 병합
-      newMarks[selectedDate] = {
-        ...newMarks[selectedDate],
-        selected: true,
-        selectedColor: '#3b82f6',
-      };
-
-      setMarkedDates(newMarks);
-    } catch (error) {
-      console.error("캘린더 점 찍기 실패:", error);
-    }
-  };
-
-  loadDots();
-}, [selectedDate]); // 선택된 날짜가 바뀔 때마다 갱신
+    loadDots();
+  }, [selectedDate]); // 선택된 날짜가 바뀔 때마다 갱신
 
   useEffect(() => {
-  const fetchReportDetail = async () => {
-    if (!selectedDate) return; // 날짜가 없으면 실행 방지
-    
-    setIsLoading(true);
-    try {
-      // 🌟 7번 대신 8번 API(fetchReportByDate)를 호출하며 현재 선택된 날짜를 넘겨줍니다.
-      const data = await fetchReportByDate(selectedDate); 
-      
-      if (data) {
-        console.log(`✅ [${selectedDate}] 상세 리포트 수신 성공:`, data);
-        setReportDetail(data); // 백엔드에서 준 그날의 상세 데이터를 바로 상태에 저장
-      } else {
-        setReportDetail(null); // 응답이 비어있으면 null 처리
+    const fetchReportDetail = async () => {
+      if (!selectedDate) return; // 날짜가 없으면 실행 방지
+
+      setIsLoading(true);
+      try {
+        // 🌟 7번 대신 8번 API(fetchReportByDate)를 호출하며 현재 선택된 날짜를 넘겨줍니다.
+        const data = await fetchReportByDate(selectedDate);
+
+        if (data) {
+          console.log(`✅ [${selectedDate}] 상세 리포트 수신 성공:`, data);
+          setReportDetail(data); // 백엔드에서 준 그날의 상세 데이터를 바로 상태에 저장
+        } else {
+          setReportDetail(null); // 응답이 비어있으면 null 처리
+        }
+      } catch (error) {
+        console.error(`⚠️ [${selectedDate}] 상세 리포트 로딩 실패:`, error);
+        setReportDetail(null);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error(`⚠️ [${selectedDate}] 상세 리포트 로딩 실패:`, error);
-      setReportDetail(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
 
-  fetchReportDetail();
-}, [selectedDate]); // 사용자가 캘린더나 화살표로 날짜를 바꿀 때마다 새로 서버에 요청합니다.
-
-
-  if (isLoading) return <View style={{flex:1, justifyContent:'center'}}><ActivityIndicator size="large" /></View>;
+    fetchReportDetail();
+  }, [selectedDate]); // 사용자가 캘린더나 화살표로 날짜를 바꿀 때마다 새로 서버에 요청합니다.
 
   return (
     <Container>
+      {/* ✅ 전체 언마운트 없이 로딩 오버레이만 표시 */}
+      {isLoading && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', zIndex: 10, backgroundColor: 'rgba(248,249,251,0.7)' }}>
+          <ActivityIndicator size="large" color="#3b82f6" />
+        </View>
+      )}
       <Header>
         <TouchableOpacity onPress={() => router.back()}>
           <ChevronLeft color="#333" size={24} />
@@ -161,10 +189,10 @@ export default function CaregiverReport() {
         transparent={true}
         onRequestClose={() => setCalendarVisible(false)}
       >
-        <TouchableOpacity 
-          style={styles.modalOverlay} 
-          activeOpacity={1} 
-          onPress={() => setCalendarVisible(false)} 
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setCalendarVisible(false)}
         >
           <View style={styles.calendarContainer}>
             <RNcalendar
@@ -174,8 +202,8 @@ export default function CaregiverReport() {
               }}
               markedDates={markedDates}
               theme={{
-                todayTextColor: '#3b82f6',
-                arrowColor: '#3b82f6',
+                todayTextColor: "#3b82f6",
+                arrowColor: "#3b82f6",
               }}
             />
           </View>
@@ -185,8 +213,10 @@ export default function CaregiverReport() {
       <Content showsVerticalScrollIndicator={false}>
         <SummaryBanner>
           <ProfileSection>
-            <Avatar source={require('./media/soonja.jpg')} />
-            <StatusBadge><StatusText>분석완료</StatusText></StatusBadge>
+            <Avatar source={require("./media/soonja.jpg")} />
+            <StatusBadge>
+              <StatusText>분석완료</StatusText>
+            </StatusBadge>
           </ProfileSection>
           <SummaryInfo>
             <PatientName>{patientName} 어르신</PatientName>
@@ -197,7 +227,6 @@ export default function CaregiverReport() {
         <DetailSection>
           <SectionLabel>상세 지표 (AI 분석)</SectionLabel>
           <DetailCard>
-            
             {/* 1. 식사 여부 */}
             <MetricRow>
               <MetricLabelGroup>
@@ -205,17 +234,31 @@ export default function CaregiverReport() {
                 <MetricTitle>식사 여부</MetricTitle>
               </MetricLabelGroup>
               <MetricValueGroup>
-                {['아침', '점심', '저녁'].map((time) => {
-                  const mealTarget = reportDetail?.meals?.find((m) => m.time === time);
+                {["아침", "점심", "저녁"].map((time) => {
+                  const mealTarget = reportDetail?.meals?.find(
+                    (m) => m.time === time,
+                  );
                   const isEaten = !!mealTarget?.eaten;
-                  const isLowConf = mealTarget ? mealTarget.confidence < 0.8 : false;
+                  const isLowConf = mealTarget
+                    ? mealTarget.confidence < 0.8
+                    : false;
 
                   return (
                     <MealStatus key={time}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          marginBottom: 4,
+                        }}
+                      >
                         <MealText style={{ marginBottom: 0 }}>{time}</MealText>
                         {isLowConf && (
-                          <AlertCircle size={11} color="#FF6B6B" style={{ marginLeft: 2 }} />
+                          <AlertCircle
+                            size={11}
+                            color="#FF6B6B"
+                            style={{ marginLeft: 2 }}
+                          />
                         )}
                       </View>
                       <StatusIconWrapper isEaten={isEaten}>
@@ -238,18 +281,35 @@ export default function CaregiverReport() {
                 <MetricTitle>일일 복약</MetricTitle>
               </MetricLabelGroup>
               <MetricValueGroup>
-                {['1회', '2회'].map((displayTime, index) => {
+                {Array.from(
+                  { length: medicationCount },
+                  (_, index) => index + 1,
+                ).map((num, index) => {
                   // 기존 데이터 리스트의 인덱스 순서대로 혹은 기존 타임 스탬프 매칭
                   const medTarget = reportDetail?.medications?.[index];
                   const isTaken = !!medTarget?.taken;
-                  const isLowConf = medTarget ? medTarget.confidence < 0.8 : false;
+                  const isLowConf = medTarget
+                    ? medTarget.confidence < 0.8
+                    : false;
 
                   return (
-                    <StatusItem key={displayTime}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                        <StatusLabel style={{ marginBottom: 0 }}>{displayTime}</StatusLabel>
+                    <StatusItem key={num}>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          marginBottom: 4,
+                        }}
+                      >
+                        <StatusLabel style={{ marginBottom: 0 }}>
+                          {num}회
+                        </StatusLabel>
                         {isLowConf && (
-                          <AlertCircle size={11} color="#FF6B6B" style={{ marginLeft: 2 }} />
+                          <AlertCircle
+                            size={11}
+                            color="#FF6B6B"
+                            style={{ marginLeft: 2 }}
+                          />
                         )}
                       </View>
                       <StatusCircle isActive={isTaken} activeColor="#FF6B6B">
@@ -269,7 +329,11 @@ export default function CaregiverReport() {
               </MetricLabelGroup>
               <MetricValueGroup>
                 {(reportDetail?.analysis?.physical?.confidence ?? 1) < 0.8 && (
-                  <AlertCircle size={14} color="#FF6B6B" style={{ marginRight: 5 }} />
+                  <AlertCircle
+                    size={14}
+                    color="#FF6B6B"
+                    style={{ marginRight: 5 }}
+                  />
                 )}
                 <SimpleValueText>
                   {reportDetail?.analysis?.physical?.condition ?? "정보 없음"}
@@ -285,7 +349,11 @@ export default function CaregiverReport() {
               </MetricLabelGroup>
               <MetricValueGroup>
                 {(reportDetail?.analysis?.mood?.confidence ?? 1) < 0.8 && (
-                  <AlertCircle size={14} color="#FF6B6B" style={{ marginRight: 5 }} />
+                  <AlertCircle
+                    size={14}
+                    color="#FF6B6B"
+                    style={{ marginRight: 5 }}
+                  />
                 )}
                 <SimpleValueText>
                   {reportDetail?.analysis?.mood?.status ?? "정보 없음"}
@@ -296,9 +364,15 @@ export default function CaregiverReport() {
 
           {/* 환자 진술 신뢰도 안내 문구 블록 */}
           <NoticeBox>
-            <AlertCircle size={14} color="#FF6B6B" style={{ marginRight: 6, marginTop: 1 }} />
+            <AlertCircle
+              size={14}
+              color="#FF6B6B"
+              style={{ marginRight: 6, marginTop: 1 }}
+            />
             <NoticeText>
-              ※ 경고 표시 항목은 "어르신 진술에 대한 AI의 신뢰도"가 낮음(80% 미만)을 의미합니다. 기억 혼동이나 인지 저하로 인한 오답변일 수 있으니 참고해 주세요.
+              ※ 경고 표시 항목은 "어르신 진술에 대한 AI의 신뢰도"가 낮음(80%
+              미만)을 의미합니다. 기억 혼동이나 인지 저하로 인한 오답변일 수
+              있으니 참고해 주세요.
             </NoticeText>
           </NoticeBox>
         </DetailSection>
@@ -306,41 +380,54 @@ export default function CaregiverReport() {
         {/* 💡 우측에 말풍선 모양의 채팅 아이콘 버튼 배치 */}
         <SectionHeader>
           <SectionLabel style={{ marginBottom: 0 }}>통화 요약</SectionLabel>
-          <ChatIconButton onPress={() => router.push("/caregiver_chat")}>
+          <ChatIconButton onPress={() => {
+            if (isNavigatingRef.current) return;
+            isNavigatingRef.current = true;
+            router.push("/caregiver_chat");
+            setTimeout(() => { isNavigatingRef.current = false; }, 1000);
+          }}>
             <MessageSquare size={20} color="#4A90E2" />
           </ChatIconButton>
         </SectionHeader>
-        
+
         <Timeline>
           {[
-            { 
-              key: 'health', 
-              label: '건강/복약', 
-              icon: <Pill size={16} color="#FF6B6B" />, 
-              bgColor: '#FFF5F5',
-              content: reportDetail?.call_summary_sections?.health ?? "기록된 건강 정보가 없습니다."
+            {
+              key: "health",
+              label: "건강/복약",
+              icon: <Pill size={16} color="#FF6B6B" />,
+              bgColor: "#FFF5F5",
+              content:
+                reportDetail?.call_summary_sections?.health ??
+                "기록된 건강 정보가 없습니다.",
             },
-            { 
-              key: 'meal', 
-              label: '식사 기록', 
-              icon: <Utensils size={16} color="#FF9F43" />, 
-              bgColor: '#FFF9F2',
-              content: reportDetail?.call_summary_sections?.meal ?? "기록된 식사 메뉴가 없습니다."
+            {
+              key: "meal",
+              label: "식사 기록",
+              icon: <Utensils size={16} color="#FF9F43" />,
+              bgColor: "#FFF9F2",
+              content:
+                reportDetail?.call_summary_sections?.meal ??
+                "기록된 식사 메뉴가 없습니다.",
             },
-            { 
-              key: 'emotion', 
-              label: '정서/감정', 
-              icon: <Smile size={16} color="#2ECC71" />, 
-              bgColor: '#F2FBF5',
-              content: reportDetail?.call_summary_sections?.emotion ?? "감정 분석 데이터가 없습니다."
+            {
+              key: "emotion",
+              label: "정서/감정",
+              icon: <Smile size={16} color="#2ECC71" />,
+              bgColor: "#F2FBF5",
+              content:
+                reportDetail?.call_summary_sections?.emotion ??
+                "감정 분석 데이터가 없습니다.",
             },
-            { 
-              key: 'daily', 
-              label: '일상/기타', 
-              icon: <MessageCircle size={16} color="#4A90E2" />, 
-              bgColor: '#F0F7FF',
-              content: reportDetail?.call_summary_sections?.daily ?? "기록된 일상 내용이 없습니다."            
-            }
+            {
+              key: "daily",
+              label: "일상/기타",
+              icon: <MessageCircle size={16} color="#4A90E2" />,
+              bgColor: "#F0F7FF",
+              content:
+                reportDetail?.call_summary_sections?.daily ??
+                "기록된 일상 내용이 없습니다.",
+            },
           ].map((section) => (
             <TimelineItem key={section.key}>
               <EventBox>
@@ -350,9 +437,7 @@ export default function CaregiverReport() {
                 <EventInfo style={{ flex: 1 }}>
                   <EventTitle>{section.label}</EventTitle>
                   {/* 수정: numberOfLines={3}을 제거하여 텍스트가 잘리지 않고 전체가 출력되도록 함 */}
-                  <EventSub>
-                    {section.content}
-                  </EventSub>
+                  <EventSub>{section.content}</EventSub>
                 </EventInfo>
               </EventBox>
             </TimelineItem>
@@ -364,47 +449,190 @@ export default function CaregiverReport() {
 }
 
 // --- 스타일 정의 ($ 변수 적용) ---
-const ProgressBar = styled.View<ProgressProps>` 
-  height: 100%; 
-  width: ${props => props.$width}; 
-  background-color: ${props => props.$color}; 
+const ProgressBar = styled.View<ProgressProps>`
+  height: 100%;
+  width: ${(props) => props.$width};
+  background-color: ${(props) => props.$color};
 `;
 
 const styles = StyleSheet.create({
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.4)', justifyContent: 'center', alignItems: 'center' },
-  calendarContainer: { width: '90%', backgroundColor: '#fff', borderRadius: 20, padding: 15, elevation: 10 }
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  calendarContainer: {
+    width: "90%",
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 15,
+    elevation: 10,
+  },
 });
 
-const Container = styled.SafeAreaView` flex: 1; background-color: #F8F9FB; `;
-const Header = styled.View` flex-direction: row; justify-content: space-between; align-items: center; padding: 15px 20px; background-color: #FFF; `;
-const HeaderTitle = styled.Text` font-size: 18px; font-weight: 700; color: #333; `;
-const Content = styled.ScrollView` padding: 20px; `;
-const SummaryBanner = styled.View` flex-direction: row; align-items: center; background-color: #FFF; padding: 20px; border-radius: 20px; margin-bottom: 25px; `;
-const ProfileSection = styled.View` position: relative; margin-right: 20px; `;
-const Avatar = styled.Image` width: 70px; height: 70px; border-radius: 35px; background-color: #EEE; `;
-const StatusBadge = styled.View` position: absolute; bottom: 0; align-self: center; background-color: #2ECC71; padding: 2px 8px; border-radius: 10px; border-width: 2px; border-color: #FFF; `;
-const StatusText = styled.Text` color: #FFF; font-size: 10px; font-weight: 700; `;
-const SummaryInfo = styled.View` flex: 1; `;
-const PatientName = styled.Text` font-size: 30px; color: #000000; margin-bottom: 4px; `;
-const MainStatus = styled.Text` font-size: 18px; font-weight: 700; color: #333; line-height: 24px; `;
-const DetailSection = styled.View` margin-bottom: 25px; `;
-const SectionLabel = styled.Text` font-size: 16px; font-weight: 700; color: #333; margin-bottom: 12px; `;
-const DetailCard = styled.View` background-color: #FFF; border-radius: 20px; padding: 20px; `;
-const MetricRow = styled.View<{ last?: boolean }>` flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: ${props => props.last ? '0px' : '20px'}; `;
-const MetricLabelGroup = styled.View` flex-direction: row; align-items: center; `;
-const MetricTitle = styled.Text` font-size: 14px; color: #555; margin-left: 10px; `;
-const MetricValueGroup = styled.View` flex-direction: row; align-items: center; justify-content: flex-end; flex: 1; `;
-const ProgressBarBase = styled.View` width: 80px; height: 6px; background-color: #F0F2F5; border-radius: 3px; margin-right: 10px; overflow: hidden; `;
-const ScoreText = styled.Text` font-size: 14px; font-weight: 700; color: #333; width: 80px; text-align: right; `;
-const SectionHeader = styled.View` flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 15px; `;
+const Container = styled.SafeAreaView`
+  flex: 1;
+  background-color: #f8f9fb;
+`;
+const Header = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background-color: #fff;
+`;
+const HeaderTitle = styled.Text`
+  font-size: 18px;
+  font-weight: 700;
+  color: #333;
+`;
+const Content = styled.ScrollView`
+  padding: 20px;
+`;
+const SummaryBanner = styled.View`
+  flex-direction: row;
+  align-items: center;
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 20px;
+  margin-bottom: 25px;
+`;
+const ProfileSection = styled.View`
+  position: relative;
+  margin-right: 20px;
+`;
+const Avatar = styled.Image`
+  width: 70px;
+  height: 70px;
+  border-radius: 35px;
+  background-color: #eee;
+`;
+const StatusBadge = styled.View`
+  position: absolute;
+  bottom: 0;
+  align-self: center;
+  background-color: #2ecc71;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border-width: 2px;
+  border-color: #fff;
+`;
+const StatusText = styled.Text`
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+`;
+const SummaryInfo = styled.View`
+  flex: 1;
+`;
+const PatientName = styled.Text`
+  font-size: 30px;
+  color: #000000;
+  margin-bottom: 4px;
+`;
+const MainStatus = styled.Text`
+  font-size: 18px;
+  font-weight: 700;
+  color: #333;
+  line-height: 24px;
+`;
+const DetailSection = styled.View`
+  margin-bottom: 25px;
+`;
+const SectionLabel = styled.Text`
+  font-size: 16px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 12px;
+`;
+const DetailCard = styled.View`
+  background-color: #fff;
+  border-radius: 20px;
+  padding: 20px;
+`;
+const MetricRow = styled.View<{ last?: boolean }>`
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: ${(props) => (props.last ? "0px" : "20px")};
+`;
+const MetricLabelGroup = styled.View`
+  flex-direction: row;
+  align-items: center;
+`;
+const MetricTitle = styled.Text`
+  font-size: 14px;
+  color: #555;
+  margin-left: 10px;
+`;
+const MetricValueGroup = styled.View`
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1;
+`;
+const ProgressBarBase = styled.View`
+  width: 80px;
+  height: 6px;
+  background-color: #f0f2f5;
+  border-radius: 3px;
+  margin-right: 10px;
+  overflow: hidden;
+`;
+const ScoreText = styled.Text`
+  font-size: 14px;
+  font-weight: 700;
+  color: #333;
+  width: 80px;
+  text-align: right;
+`;
+const SectionHeader = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+`;
 const Timeline = styled.View``;
-const TimelineItem = styled.View` flex-direction: row; align-items: center; margin-bottom: 12px; `;
-const TimeText = styled.Text` width: 50px; font-size: 13px; color: #999; `;
-const EventBox = styled.View` flex: 1; flex-direction: row; align-items: center; background-color: #FFF; padding: 15px; border-radius: 15px; `;
-const IconWrapper = styled.View<{ backgroundColor: string }>` width: 36px; height: 36px; border-radius: 12px; background-color: ${props => props.backgroundColor}; justify-content: center; align-items: center; margin-right: 12px; `;
+const TimelineItem = styled.View`
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 12px;
+`;
+const TimeText = styled.Text`
+  width: 50px;
+  font-size: 13px;
+  color: #999;
+`;
+const EventBox = styled.View`
+  flex: 1;
+  flex-direction: row;
+  align-items: center;
+  background-color: #fff;
+  padding: 15px;
+  border-radius: 15px;
+`;
+const IconWrapper = styled.View<{ backgroundColor: string }>`
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background-color: ${(props) => props.backgroundColor};
+  justify-content: center;
+  align-items: center;
+  margin-right: 12px;
+`;
 const EventInfo = styled.View``;
-const EventTitle = styled.Text` font-size: 14px; font-weight: 600; color: #333; margin-bottom: 2px; `;
-const EventSub = styled.Text` font-size: 12px; color: #999; line-height: 18px; `; // 가독성을 위해 line-height 살짝 추가
+const EventTitle = styled.Text`
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 2px;
+`;
+const EventSub = styled.Text`
+  font-size: 12px;
+  color: #999;
+  line-height: 18px;
+`; // 가독성을 위해 line-height 살짝 추가
 
 const MealStatus = styled.View`
   align-items: center;
@@ -421,11 +649,11 @@ const StatusIconWrapper = styled.View<{ isEaten?: boolean }>`
   width: 24px;
   height: 24px;
   border-radius: 12px;
-  background-color: ${props => props.isEaten ? '#FF9F43' : '#F0F0F0'};
+  background-color: ${(props) => (props.isEaten ? "#FF9F43" : "#F0F0F0")};
   justify-content: center;
   align-items: center;
   border-width: 1px;
-  border-color: ${props => props.isEaten ? '#FF9F43' : '#DDD'};
+  border-color: ${(props) => (props.isEaten ? "#FF9F43" : "#DDD")};
 `;
 
 const StatusItem = styled.View`
@@ -443,11 +671,12 @@ const StatusCircle = styled.View<{ isActive?: boolean; activeColor: string }>`
   width: 26px;
   height: 26px;
   border-radius: 13px;
-  background-color: ${props => props.isActive ? props.activeColor : '#F0F2F5'};
+  background-color: ${(props) =>
+    props.isActive ? props.activeColor : "#F0F2F5"};
   justify-content: center;
   align-items: center;
   border-width: 1px;
-  border-color: ${props => props.isActive ? props.activeColor : '#E0E0E0'};
+  border-color: ${(props) => (props.isActive ? props.activeColor : "#E0E0E0")};
 `;
 
 const SimpleValueText = styled.Text`
@@ -460,7 +689,7 @@ const SimpleValueText = styled.Text`
 const NoticeBox = styled.View`
   flex-direction: row;
   align-items: flex-start;
-  background-color: #EFEFEF;
+  background-color: #efefef;
   padding: 12px 14px;
   border-radius: 14px;
   margin-top: 12px;

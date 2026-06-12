@@ -289,7 +289,6 @@ export default function CallScreen() {
         }
 
         textQueueRef.current.push(event.data);
-        setAiMessage(event.data);
         return;
       }
 
